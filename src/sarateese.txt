@@ -1,0 +1,8 @@
+print("welcome to sarateese")
+print("please kill yourself")
+String ee = "Should I kill myself?"
+print(ee)
+Bool eee = True
+print(eee)
+i32 e = 69
+print(e)
