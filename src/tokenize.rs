@@ -214,4 +214,26 @@ while (True){
         ];
         assert_eq!(actual, expected);
     }
+    #[test]
+    fn change_variable(){
+        let actual = parse_to_tokens("i32 i = 0\ni = 1\nString e = \"hello\"\ne = \"bye\"\nBool yes = True\nyes = False");
+        let expected = vec![
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("0".to_string()),
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("1".to_string()),
+            Token::TypeString,
+            Token::VariableName("e".to_string()),
+            Token::String("hello".to_string()),
+            Token::VariableName("e".to_string()),
+            Token::String("bye".to_string()),
+            Token::TypeBool,
+            Token::VariableName("yes".to_string()),
+            Token::Boolean(true),
+            Token::VariableName("yes".to_string()),
+            Token::Boolean(false),
+        ];
+        assert_eq!(actual, expected);
+    }
 }

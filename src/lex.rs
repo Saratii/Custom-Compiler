@@ -1,5 +1,3 @@
-use std::os::windows::process;
-
 use crate::tokenize::Token;
 #[derive(PartialEq, Debug)]
 pub enum Line {
@@ -30,7 +28,7 @@ pub fn lex(tokens: Vec<Token>) -> Vec<Line> {
 }
 
 fn process_token(i: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>){
-    match tokens[i]{
+    match &tokens[i]{
         Token::Print => {
             match &tokens[i+1]{
                 Token::String(expression) => lines.push(Line::Print(Expression::String(expression.to_string()))),
@@ -92,7 +90,30 @@ fn process_token(i: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>){
                 _ => todo!(),
             }
         }
-        Token::EndLoop => {lines.push(Line::EndLoop)}
+        Token::VariableName(name) => {
+            match &tokens[i-1]{
+                Token::TypeBool => {}
+                Token::TypeI32 => {}
+                Token::TypeString => {}
+                _ => {
+                    match &tokens[i+1]{
+                        Token::Boolean(value) => {
+                            lines.push(Line::DefineVariable(name.to_string(), Expression::Bool(*value), Type::Bool))
+                        }
+                        Token::String(value) => {
+                            lines.push(Line::DefineVariable(name.to_string(), Expression::String(value.to_string()), Type::String))
+                        }
+                        Token::ConstantNumber(value) => {
+                            lines.push(Line::DefineVariable(name.to_string(), Expression::I32(value.to_string()), Type::I32))
+                        }
+                        _ => {}
+                    } 
+                }
+            }
+        }
+        Token::EndLoop => {
+            lines.push(Line::EndLoop)
+        }
         _ => {}
     }
 }
@@ -164,6 +185,35 @@ mod test {
             Line::WhileLoop(Expression::Bool(true), vec![Line::Print(Expression::String("69".to_string()))]),
             Line::Print(Expression::String("69".to_string())),
             Line::EndLoop,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn change_variable(){
+        let actual = lex(vec![
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("0".to_string()),
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("1".to_string()),
+            Token::TypeString,
+            Token::VariableName("e".to_string()),
+            Token::String("hello".to_string()),
+            Token::VariableName("e".to_string()),
+            Token::String("bye".to_string()),
+            Token::TypeBool,
+            Token::VariableName("yes".to_string()),
+            Token::Boolean(true),
+            Token::VariableName("yes".to_string()),
+            Token::Boolean(false),
+        ]);
+        let expected = vec![
+            Line::DefineVariable("i".to_string(), Expression::I32("0".to_string()), Type::I32),
+            Line::DefineVariable("i".to_string(), Expression::I32("1".to_string()), Type::I32),
+            Line::DefineVariable("e".to_string(), Expression::String("hello".to_string()), Type::String),
+            Line::DefineVariable("e".to_string(), Expression::String("bye".to_string()), Type::String),
+            Line::DefineVariable("yes".to_string(), Expression::Bool(true), Type::Bool),
+            Line::DefineVariable("yes".to_string(), Expression::Bool(false), Type::Bool),
         ];
         assert_eq!(actual, expected);
     }

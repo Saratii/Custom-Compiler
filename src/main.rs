@@ -1,5 +1,3 @@
-use regex::Regex;
-
 use crate::eval::evaluate;
 
 mod eval;
