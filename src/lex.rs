@@ -1,17 +1,21 @@
+use std::os::windows::process;
+
 use crate::tokenize::Token;
 #[derive(PartialEq, Debug)]
 pub enum Line {
     Print(Expression),
     DefineVariable(String, Expression, Type),
+    WhileLoop(Expression, Vec<Line>),
+    EndLoop,
 }
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
     String(String),
     Bool(bool),
     Variable(String),
     I32(String),
 }
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Type{
     Bool,
     String,
@@ -20,53 +24,79 @@ pub enum Type{
 pub fn lex(tokens: Vec<Token>) -> Vec<Line> {
     let mut lines = vec![];
     for i in 0..tokens.len(){
-        match &tokens[i]{
-            Token::Print => {
-                match &tokens[i+1]{
-                    Token::String(expression) => lines.push(Line::Print(Expression::String(expression.to_string()))),
-                    Token::VariableName(name) => lines.push(Line::Print(Expression::Variable(name.to_string()))),
-                    _ => {}
-                    
-                }   
-            }
-            Token::TypeBool => {
-                match &tokens[i+1]{
-                    Token::VariableName(name) => {
-                        match &tokens[i+2]{
-                            Token::Boolean(expression) => lines.push(Line::DefineVariable(name.to_string(), Expression::Bool(expression.clone()), Type::Bool)),
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Token::TypeString => {
-                match &tokens[i+1]{
-                    Token::VariableName(name) => {
-                        match &tokens[i+2]{
-                            Token::String(expression) => lines.push(Line::DefineVariable(name.to_string(), Expression::String(expression.to_string()), Type::String)),
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Token::TypeI32 => {
-                match &tokens[i+1]{
-                    Token::VariableName(name) => {
-                        match &tokens[i+2]{
-                            Token::ConstantNumber(expression) => lines.push(Line::DefineVariable(name.to_string(), Expression::I32(expression.to_string()), Type::I32)),
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            _ => {}
-        }
+        process_token(i, &tokens, &mut lines)
     }
     lines
 }
+
+fn process_token(i: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>){
+    match tokens[i]{
+        Token::Print => {
+            match &tokens[i+1]{
+                Token::String(expression) => lines.push(Line::Print(Expression::String(expression.to_string()))),
+                Token::VariableName(name) => lines.push(Line::Print(Expression::Variable(name.to_string()))),
+                Token::EndParen => lines.push(Line::Print(Expression::String("".to_string()))),
+                Token::ConstantNumber(value) => lines.push(Line::Print(Expression::String(value.to_string()))),
+                Token::Boolean(value) => lines.push(Line::Print(Expression::String(value.to_string()))),
+                _ => println!("{}", &format!("Oopsie Woopsie: invalid token following print: {:?}", tokens[i+1])),
+            }   
+        }
+        Token::TypeBool => {
+            match &tokens[i+1]{
+                Token::VariableName(name) => {
+                    match &tokens[i+2]{
+                        Token::Boolean(expression) => lines.push(Line::DefineVariable(name.to_string(), Expression::Bool(expression.clone()), Type::Bool)),
+                        _ => println!("{}", &format!("Oopsie Woopsie: invalid token following a variable name: {:?}", tokens[i+1])),
+                    }
+                }
+                _ => println!("{}", &format!("Oopsie Woopsie: invalid token following Bool: {:?}", tokens[i+1])),
+            }
+        }
+        Token::TypeString => {
+            match &tokens[i+1]{
+                Token::VariableName(name) => {
+                    match &tokens[i+2]{
+                        Token::String(expression) => lines.push(Line::DefineVariable(name.to_string(), Expression::String(expression.to_string()), Type::String)),
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        Token::TypeI32 => {
+            match &tokens[i+1]{
+                Token::VariableName(name) => {
+                    match &tokens[i+2]{
+                        Token::ConstantNumber(value) => lines.push(Line::DefineVariable(name.to_string(), Expression::I32(value.to_string()), Type::I32)),
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        Token::WhileLoop => {
+            match &tokens[i+1]{
+                Token::Boolean(condition) => {
+                    let mut while_loop_lines = vec![];
+                    let mut token_index = i + 2;
+                    while token_index < tokens.len(){
+                        if tokens[token_index] == Token::EndLoop {
+                            break
+                        }
+                        process_token(token_index, tokens, &mut while_loop_lines);
+                        token_index += 1;
+                    }
+                    lines.push(Line::WhileLoop(Expression::Bool(*condition), while_loop_lines));
+                }
+                  
+                _ => todo!(),
+            }
+        }
+        Token::EndLoop => {lines.push(Line::EndLoop)}
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{lex::Expression, tokenize::Token};
@@ -116,6 +146,25 @@ mod test {
             Line::DefineVariable("ee".to_string(), Expression::String("should I kill myself?".to_string()), Type::String),
             Line::Print(Expression::Variable("ee".to_string())),
             ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn simple_while_loop(){
+        let actual = lex(vec![
+            Token::WhileLoop,
+            Token::Boolean(true),
+            Token::EndParen,
+            Token::StartLoop,
+            Token::Print,
+            Token::ConstantNumber("69".to_string()),
+            Token::EndParen,
+            Token::EndLoop,
+        ]);
+        let expected = vec![
+            Line::WhileLoop(Expression::Bool(true), vec![Line::Print(Expression::String("69".to_string()))]),
+            Line::Print(Expression::String("69".to_string())),
+            Line::EndLoop,
+        ];
         assert_eq!(actual, expected);
     }
 }
