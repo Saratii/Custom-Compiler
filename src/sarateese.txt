@@ -1,9 +1,9 @@
-i32 e = 68
-e = 69
-print(e)
-Bool b = False
-String s = "pp"
-b = True
-print(b)
-s = "wee wee"
-print(s)
+i32 e = 68;
+e = 69;
+print(e);
+Bool b = False;
+String s = "pp";
+b = True;
+print(b);
+s = "wee wee";
+print(s);
