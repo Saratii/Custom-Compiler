@@ -1,9 +1,8 @@
-i32 e = 68;
-e = 69;
-print(e);
-Bool b = False;
-String s = "pp";
-b = True;
-print(b);
-s = "wee wee";
-print(s);
+i32 a = 1;
+i32 b = 1;
+while (True){
+    c = a + b;
+    a = b;
+    b = c;
+    print(c);
+}

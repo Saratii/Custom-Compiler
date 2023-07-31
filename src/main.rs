@@ -1,3 +1,5 @@
+use lex::{BinaryOperator, Complete, Expression, Line, Type};
+
 use crate::eval::evaluate;
 
 mod eval;

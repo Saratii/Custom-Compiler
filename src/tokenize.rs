@@ -16,7 +16,7 @@ pub enum Token {
     WhileLoop,
     MathOp(MathOp),
     EndLine,
-    OpenParen,
+    // OpenParen,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum MathOp{
@@ -324,6 +324,19 @@ while (True){
             Token::ConstantNumber("4".to_string()),
             Token::MathOp(MathOp::Multiply),
             Token::ConstantNumber("68".to_string()),
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn print_equation(){
+        let actual = parse_to_tokens("print(1 + 69);");
+        let expected = vec![
+            Token::Print,
+            Token::ConstantNumber("1".to_string()),
+            Token::MathOp(MathOp::Add),
+            Token::ConstantNumber("69".to_string()),
+            Token::EndParen,
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
