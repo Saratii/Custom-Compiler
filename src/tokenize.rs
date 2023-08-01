@@ -19,7 +19,7 @@ pub enum Token {
     // OpenParen,
 }
 #[derive(PartialEq, Debug, Clone)]
-pub enum MathOp{
+pub enum MathOp {
     Add,
     Multiply,
     Divide,
@@ -70,34 +70,34 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
             inputs = inputs[constant_number.len()..].to_string();
         } else if inputs.starts_with(" = ") {
             inputs = inputs[3..].to_string();
-        } else if inputs.starts_with("Bool "){
+        } else if inputs.starts_with("Bool ") {
             tokens.push(Token::TypeBool);
             inputs = inputs[5..].to_string();
-        } else if inputs.starts_with("True"){
+        } else if inputs.starts_with("True") {
             tokens.push(Token::Boolean(true));
             inputs = inputs[4..].to_string();
-        } else if inputs.starts_with("False"){
+        } else if inputs.starts_with("False") {
             tokens.push(Token::Boolean(false));
             inputs = inputs[5..].to_string();
-        } else if inputs.starts_with("while ("){
+        } else if inputs.starts_with("while (") {
             tokens.push(Token::WhileLoop);
             inputs = inputs[7..].to_string();
-        } else if inputs.starts_with("{"){
+        } else if inputs.starts_with("{") {
             tokens.push(Token::StartLoop);
             inputs = inputs[1..].to_string();
-        } else if inputs.starts_with(" + "){
+        } else if inputs.starts_with(" + ") {
             tokens.push(Token::MathOp(MathOp::Add));
             inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(" - "){
+        } else if inputs.starts_with(" - ") {
             tokens.push(Token::MathOp(MathOp::Subtract));
             inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(" * "){
+        } else if inputs.starts_with(" * ") {
             tokens.push(Token::MathOp(MathOp::Multiply));
             inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(" / "){
+        } else if inputs.starts_with(" / ") {
             tokens.push(Token::MathOp(MathOp::Divide));
             inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(";"){
+        } else if inputs.starts_with(";") {
             tokens.push(Token::EndLine);
             inputs = inputs[1..].to_string();
         } else if name_regex.is_match(&inputs) {
@@ -182,7 +182,7 @@ mod test {
         assert_eq!(actual, expected);
     }
     #[test]
-    fn print_variable_test(){
+    fn print_variable_test() {
         let actual = parse_to_tokens("Bool eee = True;\nprint(eee);");
         let expected = vec![
             Token::TypeBool,
@@ -197,7 +197,7 @@ mod test {
         assert_eq!(actual, expected);
     }
     #[test]
-    fn print_string_variable(){
+    fn print_string_variable() {
         let actual = parse_to_tokens("String ee = \"should I kill myself?\";\nprint(ee);");
         let expected = vec![
             Token::TypeString,
@@ -212,7 +212,7 @@ mod test {
         assert_eq!(actual, expected);
     }
     #[test]
-    fn while_true(){
+    fn while_true() {
         let actual = parse_to_tokens("while (True){\nprint(69);\n}");
         let expected = vec![
             Token::WhileLoop,
@@ -228,12 +228,13 @@ mod test {
         assert_eq!(actual, expected);
     }
     #[test]
-    fn format_tab(){
-        let actual = parse_to_tokens("
+    fn format_tab() {
+        let actual = parse_to_tokens(
+            "
 i32 e = 69;
 while (True){
     print(e);
-}"
+}",
         );
         let expected = vec![
             Token::TypeI32,
@@ -253,7 +254,7 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn change_variable(){
+    fn change_variable() {
         let actual = parse_to_tokens("i32 i = 0;\ni = 1;\nString e = \"hello\";\ne = \"bye\";\nBool yes = True;\nyes = False;");
         let expected = vec![
             Token::TypeI32,
@@ -281,8 +282,9 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn simple_math(){
-        let actual = parse_to_tokens("i32 e = 4 + 3;\ni32 ee = 4 - 3;\ni32 eee = 8 / 2;\ni32 eeee = 8 * 2;");
+    fn simple_math() {
+        let actual =
+            parse_to_tokens("i32 e = 4 + 3;\ni32 ee = 4 - 3;\ni32 eee = 8 / 2;\ni32 eeee = 8 * 2;");
         let expected = vec![
             Token::TypeI32,
             Token::VariableName("e".to_string()),
@@ -312,7 +314,7 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn multi_term_simple_math(){
+    fn multi_term_simple_math() {
         let actual = parse_to_tokens("i32 foo = 3 + 5 / 4 * 68;");
         let expected = vec![
             Token::TypeI32,
@@ -329,13 +331,34 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn print_equation(){
+    fn print_equation() {
         let actual = parse_to_tokens("print(1 + 69);");
         let expected = vec![
             Token::Print,
             Token::ConstantNumber("1".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("69".to_string()),
+            Token::EndParen,
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn variable_adding() {
+        let actual = parse_to_tokens("i32 e = 1;i32 ee = 2;print(e + ee);");
+        let expected = vec![
+            Token::TypeI32,
+            Token::VariableName("e".to_string()),
+            Token::ConstantNumber("1".to_string()),
+            Token::EndLine,
+            Token::TypeI32,
+            Token::VariableName("ee".to_string()),
+            Token::ConstantNumber("2".to_string()),
+            Token::EndLine,
+            Token::Print,
+            Token::VariableName("e".to_string()),
+            Token::MathOp(MathOp::Add),
+            Token::VariableName("ee".to_string()),
             Token::EndParen,
             Token::EndLine,
         ];

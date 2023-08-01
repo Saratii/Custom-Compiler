@@ -154,30 +154,6 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
             lines.push(Line::Print(literal));
 
             i = end_pos.unwrap();
-            // match &tokens[i] {
-
-            //     Token::String(expression) => {
-            //         lines.push(Line::Print(Expression::String(expression.to_string())))
-            //     }
-            //     Token::VariableName(name) => {
-            //         lines.push(Line::Print(Expression::Variable(name.to_string())))
-            //     }
-            //     Token::EndParen => lines.push(Line::Print(Expression::String("".to_string()))),
-            //     Token::ConstantNumber(value) => {
-            //         lines.push(Line::Print(Expression::String(value.to_string())))
-            //     }
-            //     Token::Boolean(value) => {
-            //         lines.push(Line::Print(Expression::String(value.to_string())))
-            //     }
-
-            //     _ => println!(
-            //         "{}",
-            //         &format!(
-            //             "Oopsie Woopsie: invalid token following print: {:?}",
-            //             tokens[i]
-            //         )
-            //     ),
-            // }
         }
         Token::TypeBool => {
             i += 1;
@@ -287,12 +263,6 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                     _ => None,
                 });
             let (literal, literal_type) = lex_expression(&tokens[i..end_pos.unwrap()]);
-            println!("i:{} end point: {:?}", i, end_pos);
-            println!(
-                "added line with name: {}, and value: {:?}",
-                name.to_string(),
-                literal
-            );
             lines.push(Line::DefineVariable(
                 name.to_string(),
                 literal,
@@ -330,6 +300,32 @@ fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
         match &tokens[i] {
             Token::ConstantNumber(value) => {
                 let mut right = Expression::I32(value.to_string());
+                loop {
+                    if stack.len() > 1 {
+                        let operator = stack.pop().unwrap();
+                        let left = stack.pop().unwrap();
+                        match operator {
+                            Expression::BinaryOperator(binary_operator) => {
+                                right = Expression::Complete(
+                                    Complete::from((&binary_operator, &left, &right))
+                                        .apply_precidence(),
+                                );
+                            }
+                            _ => {
+                                stack.push(left);
+                                stack.push(operator);
+                                stack.push(right);
+                                break;
+                            }
+                        }
+                    } else {
+                        stack.push(right);
+                        break;
+                    }
+                }
+            }
+            Token::VariableName(name) => {
+                let mut right = Expression::Variable(name.to_string());
                 loop {
                     if stack.len() > 1 {
                         let operator = stack.pop().unwrap();
@@ -581,6 +577,39 @@ mod test {
             left: Box::new(Expression::I32("1".to_string())),
             right: Box::new(Expression::I32("69".to_string())),
         }))];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn variable_adding() {
+        let actual = lex(vec![
+            Token::TypeI32,
+            Token::VariableName("e".to_string()),
+            Token::ConstantNumber("1".to_string()),
+            Token::EndLine,
+            Token::TypeI32,
+            Token::VariableName("ee".to_string()),
+            Token::ConstantNumber("2".to_string()),
+            Token::EndLine,
+            Token::Print,
+            Token::VariableName("e".to_string()),
+            Token::MathOp(MathOp::Add),
+            Token::VariableName("ee".to_string()),
+            Token::EndParen,
+            Token::EndLine,
+        ]);
+        let expected = vec![
+            Line::DefineVariable("e".to_string(), Expression::I32("1".to_string()), Type::I32),
+            Line::DefineVariable(
+                "ee".to_string(),
+                Expression::I32("2".to_string()),
+                Type::I32,
+            ),
+            Line::Print(Expression::Complete(Complete {
+                operator: BinaryOperator::Add,
+                left: Box::new(Expression::Variable("e".to_string())),
+                right: Box::new(Expression::Variable("ee".to_string())),
+            })),
+        ];
         assert_eq!(actual, expected);
     }
 }
