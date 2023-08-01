@@ -16,6 +16,8 @@ pub enum Token {
     WhileLoop,
     MathOp(MathOp),
     EndLine,
+    If,
+    Equals
     // OpenParen,
 }
 #[derive(PartialEq, Debug, Clone)]
@@ -35,6 +37,7 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
 
     let mut tokens = vec![];
     while inputs.len() > 0 {
+        println!("{:?}", tokens);
         if inputs.starts_with("print(") {
             tokens.push(Token::Print);
             inputs = inputs[6..].to_string();
@@ -100,6 +103,12 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
         } else if inputs.starts_with(";") {
             tokens.push(Token::EndLine);
             inputs = inputs[1..].to_string();
+        } else if inputs.starts_with("if("){
+            tokens.push(Token::If);
+            inputs = inputs[3..].to_string();
+        } else if inputs.starts_with(" == "){
+            tokens.push(Token::Equals);
+            inputs = inputs[4..].to_string()
         } else if name_regex.is_match(&inputs) {
             let variable_name = name_regex
                 .captures(&inputs)
@@ -361,6 +370,28 @@ while (True){
             Token::VariableName("ee".to_string()),
             Token::EndParen,
             Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn basic_if(){
+        let actual = parse_to_tokens("i32 e = 69;if(e == 69){print(e);}");
+        let expected = vec![
+            Token::TypeI32,
+            Token::VariableName("e".to_string()),
+            Token::ConstantNumber("69".to_string()),
+            Token::EndLine,
+            Token::If,
+            Token::VariableName("e".to_string()),
+            Token::Equals,
+            Token::ConstantNumber("69".to_string()),
+            Token::EndParen,
+            Token::StartLoop,
+            Token::Print,
+            Token::VariableName("e".to_string()),
+            Token::EndParen,
+            Token::EndLine,
+            Token::EndLoop,
         ];
         assert_eq!(actual, expected);
     }
