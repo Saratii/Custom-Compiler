@@ -11,7 +11,7 @@ pub enum Expression {
     String(String),
     Bool(bool),
     Variable(String),
-    I32(String),
+    I32(i32),
     Complete(Complete),
     BinaryOperator(BinaryOperator),
     // CompleteU(CompleteU),
@@ -286,7 +286,9 @@ fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
     }
     if tokens.len() == 1 {
         match &tokens[0] {
-            Token::ConstantNumber(value) => return (Expression::I32(value.to_string()), Type::I32),
+            Token::ConstantNumber(value) => {
+                return (Expression::I32(value.parse::<i32>().unwrap()), Type::I32)
+            }
             Token::String(value) => return (Expression::String(value.to_string()), Type::String),
             Token::Boolean(value) => return (Expression::Bool(value.clone()), Type::Bool),
             Token::VariableName(name) => {
@@ -299,7 +301,7 @@ fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
     while i < tokens.len() {
         match &tokens[i] {
             Token::ConstantNumber(value) => {
-                let mut right = Expression::I32(value.to_string());
+                let mut right = Expression::I32(value.parse::<i32>().unwrap());
                 loop {
                     if stack.len() > 1 {
                         let operator = stack.pop().unwrap();
@@ -479,8 +481,8 @@ mod test {
             Token::EndLine,
         ]);
         let expected = vec![
-            Line::DefineVariable("i".to_string(), Expression::I32("0".to_string()), Type::I32),
-            Line::DefineVariable("i".to_string(), Expression::I32("1".to_string()), Type::I32),
+            Line::DefineVariable("i".to_string(), Expression::I32(0), Type::I32),
+            Line::DefineVariable("i".to_string(), Expression::I32(1), Type::I32),
             Line::DefineVariable(
                 "e".to_string(),
                 Expression::String("hello".to_string()),
@@ -518,12 +520,12 @@ mod test {
                     operator: BinaryOperator::Add,
                     left: Box::new(Expression::Complete(Complete {
                         operator: BinaryOperator::Add,
-                        left: Box::new(Expression::I32("4".to_string())),
-                        right: Box::new(Expression::I32("4".to_string())),
+                        left: Box::new(Expression::I32(4)),
+                        right: Box::new(Expression::I32(4)),
                     })),
-                    right: Box::new(Expression::I32("4".to_string())),
+                    right: Box::new(Expression::I32(4)),
                 })),
-                right: Box::new(Expression::I32("4".to_string())),
+                right: Box::new(Expression::I32(4)),
             }),
             Type::I32,
         )];
@@ -549,13 +551,13 @@ mod test {
                 operator: BinaryOperator::Subtract,
                 left: Box::new(Expression::Complete(Complete {
                     operator: BinaryOperator::Add,
-                    left: Box::new(Expression::I32("1".to_string())),
-                    right: Box::new(Expression::I32("2".to_string())),
+                    left: Box::new(Expression::I32(1)),
+                    right: Box::new(Expression::I32(2)),
                 })),
                 right: Box::new(Expression::Complete(Complete {
                     operator: BinaryOperator::Multiply,
-                    left: Box::new(Expression::I32("3".to_string())),
-                    right: Box::new(Expression::I32("4".to_string())),
+                    left: Box::new(Expression::I32(3)),
+                    right: Box::new(Expression::I32(4)),
                 })),
             }),
             Type::I32,
@@ -574,8 +576,8 @@ mod test {
         ]);
         let expected = vec![Line::Print(Expression::Complete(Complete {
             operator: BinaryOperator::Add,
-            left: Box::new(Expression::I32("1".to_string())),
-            right: Box::new(Expression::I32("69".to_string())),
+            left: Box::new(Expression::I32(1)),
+            right: Box::new(Expression::I32(69)),
         }))];
         assert_eq!(actual, expected);
     }
@@ -598,10 +600,10 @@ mod test {
             Token::EndLine,
         ]);
         let expected = vec![
-            Line::DefineVariable("e".to_string(), Expression::I32("1".to_string()), Type::I32),
+            Line::DefineVariable("e".to_string(), Expression::I32(1), Type::I32),
             Line::DefineVariable(
                 "ee".to_string(),
-                Expression::I32("2".to_string()),
+                Expression::I32(2),
                 Type::I32,
             ),
             Line::Print(Expression::Complete(Complete {

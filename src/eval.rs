@@ -66,16 +66,16 @@ impl Complete {
         ) {
             (Expression::I32(left), Expression::I32(right)) => match self.operator {
                 BinaryOperator::Add => Expression::I32(
-                    (left.parse::<i32>().unwrap() + right.parse::<i32>().unwrap()).to_string(),
+                    left + right,
                 ),
                 BinaryOperator::Subtract => Expression::I32(
-                    (left.parse::<i32>().unwrap() - right.parse::<i32>().unwrap()).to_string(),
+                    left - right,
                 ),
                 BinaryOperator::Multiply => Expression::I32(
-                    (left.parse::<i32>().unwrap() * right.parse::<i32>().unwrap()).to_string(),
+                   left * right,
                 ),
                 BinaryOperator::Divide => Expression::I32(
-                    (left.parse::<i32>().unwrap() / right.parse::<i32>().unwrap()).to_string(),
+                    left / right,
                 ),
             },
             (a, b) => {
