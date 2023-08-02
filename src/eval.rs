@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use crate::lex::{BinaryOperator, Complete, Expression, Line, Type};
+use std::collections::HashMap;
 
 pub fn evaluate(lines: Vec<Line>) {
     let mut variables = HashMap::new();
@@ -55,6 +54,19 @@ pub fn evaluate_line(line: &Line, variables: &mut HashMap<String, (Expression, T
             }
             _ => {}
         },
+        Line::If(condition, lines) => {
+            let final_condition = condition.evaluate(variables);
+            match final_condition{
+                Expression::Bool(value) => {
+                    if value{
+                        for line in lines{
+                            evaluate_line(line, variables);
+                        }
+                    }
+                }
+                _ => println!("compiler done fucked up")
+            }
+        }
         _ => {}
     }
 }
@@ -65,18 +77,11 @@ impl Complete {
             self.right.evaluate(variables),
         ) {
             (Expression::I32(left), Expression::I32(right)) => match self.operator {
-                BinaryOperator::Add => Expression::I32(
-                    left + right,
-                ),
-                BinaryOperator::Subtract => Expression::I32(
-                    left - right,
-                ),
-                BinaryOperator::Multiply => Expression::I32(
-                   left * right,
-                ),
-                BinaryOperator::Divide => Expression::I32(
-                    left / right,
-                ),
+                BinaryOperator::Add => Expression::I32(left + right),
+                BinaryOperator::Subtract => Expression::I32(left - right),
+                BinaryOperator::Multiply => Expression::I32(left * right),
+                BinaryOperator::Divide => Expression::I32(left / right),
+                BinaryOperator::Equals => Expression::Bool(left == right),
             },
             (a, b) => {
                 panic!("learn how to fucking program, {:?} {:?}", a, b);

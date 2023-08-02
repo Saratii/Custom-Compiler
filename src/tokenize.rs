@@ -17,7 +17,6 @@ pub enum Token {
     MathOp(MathOp),
     EndLine,
     If,
-    Equals
     // OpenParen,
 }
 #[derive(PartialEq, Debug, Clone)]
@@ -26,6 +25,7 @@ pub enum MathOp {
     Multiply,
     Divide,
     Subtract,
+    Equals,
 }
 
 pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
@@ -37,7 +37,6 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
 
     let mut tokens = vec![];
     while inputs.len() > 0 {
-        println!("{:?}", tokens);
         if inputs.starts_with("print(") {
             tokens.push(Token::Print);
             inputs = inputs[6..].to_string();
@@ -107,7 +106,7 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
             tokens.push(Token::If);
             inputs = inputs[3..].to_string();
         } else if inputs.starts_with(" == "){
-            tokens.push(Token::Equals);
+            tokens.push(Token::MathOp(MathOp::Equals));
             inputs = inputs[4..].to_string()
         } else if name_regex.is_match(&inputs) {
             let variable_name = name_regex
@@ -383,7 +382,7 @@ while (True){
             Token::EndLine,
             Token::If,
             Token::VariableName("e".to_string()),
-            Token::Equals,
+            Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("69".to_string()),
             Token::EndParen,
             Token::StartLoop,

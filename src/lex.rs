@@ -5,6 +5,7 @@ pub enum Line {
     DefineVariable(String, Expression, Type),
     WhileLoop(Expression, Vec<Line>),
     EndLoop,
+    If(Expression, Vec<Line>),
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
@@ -23,6 +24,7 @@ pub enum BinaryOperator {
     Subtract,
     Multiply,
     Divide,
+    Equals,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub struct Complete {
@@ -61,6 +63,7 @@ impl BinaryOperator {
             BinaryOperator::Subtract => 1,
             BinaryOperator::Divide => 2,
             BinaryOperator::Multiply => 2,
+            BinaryOperator::Equals => 0,
         }
     }
 }
@@ -71,6 +74,7 @@ impl From<&MathOp> for Expression {
             MathOp::Divide => Expression::BinaryOperator(BinaryOperator::Divide),
             MathOp::Subtract => Expression::BinaryOperator(BinaryOperator::Subtract),
             MathOp::Add => Expression::BinaryOperator(BinaryOperator::Add),
+            MathOp::Equals => Expression::BinaryOperator(BinaryOperator::Equals),
         }
     }
 }
@@ -154,6 +158,32 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
             lines.push(Line::Print(literal));
 
             i = end_pos.unwrap();
+        }
+        Token::If => {
+            i += 1;
+            let end_pos = tokens
+                .iter()
+                .enumerate()
+                .skip(i)
+                .find_map(|(i, token)| match token {
+                    Token::EndParen => Some(i),
+                    _ => None,
+                });
+            let (condition_literal, _) = lex_expression(&tokens[i..end_pos.unwrap()]);
+            i = end_pos.unwrap() + 2;
+            let end_of_if = tokens
+                .iter()
+                .enumerate()
+                .skip(i)
+                .find_map(|(i, token)| match token {
+                    Token::EndLoop => Some(i),
+                    _ => None,
+                });
+
+            let if_tokens = tokens[i..end_of_if.unwrap()].to_vec();
+            let if_lines = lex(if_tokens);
+            lines.push(Line::If(condition_literal, if_lines));
+            i = end_of_if.unwrap() - 1;
         }
         Token::TypeBool => {
             i += 1;
@@ -248,7 +278,6 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                         while_loop_lines,
                     ));
                 }
-
                 _ => todo!(),
             }
         }
@@ -601,16 +630,45 @@ mod test {
         ]);
         let expected = vec![
             Line::DefineVariable("e".to_string(), Expression::I32(1), Type::I32),
-            Line::DefineVariable(
-                "ee".to_string(),
-                Expression::I32(2),
-                Type::I32,
-            ),
+            Line::DefineVariable("ee".to_string(), Expression::I32(2), Type::I32),
             Line::Print(Expression::Complete(Complete {
                 operator: BinaryOperator::Add,
                 left: Box::new(Expression::Variable("e".to_string())),
                 right: Box::new(Expression::Variable("ee".to_string())),
             })),
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn basic_if() {
+        let actual = lex(vec![
+            Token::TypeI32,
+            Token::VariableName("e".to_string()),
+            Token::ConstantNumber("69".to_string()),
+            Token::EndLine,
+            Token::If,
+            Token::VariableName("e".to_string()),
+            Token::MathOp(MathOp::Equals),
+            Token::ConstantNumber("69".to_string()),
+            Token::EndParen,
+            Token::StartLoop,
+            Token::Print,
+            Token::VariableName("e".to_string()),
+            Token::EndParen,
+            Token::EndLine,
+            Token::EndLoop,
+        ]);
+        let expected = vec![
+            Line::DefineVariable("e".to_string(), Expression::I32(69), Type::I32),
+            Line::If(
+                Expression::Complete(Complete {
+                    operator: BinaryOperator::Equals,
+                    left: Box::new(Expression::Variable("e".to_string())),
+                    right: Box::new(Expression::I32(69)),
+                }),
+                vec![Line::Print(Expression::Variable("e".to_string()))],
+            ),
+            Line::EndLoop,
         ];
         assert_eq!(actual, expected);
     }
