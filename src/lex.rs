@@ -1,11 +1,12 @@
 use crate::tokenize::{MathOp, Token};
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Line {
     Print(Expression),
     DefineVariable(String, Expression, Type),
     WhileLoop(Expression, Vec<Line>),
     EndLoop,
     If(Expression, Vec<Line>),
+    ForLoop(Box<Line>, Expression, Box<Line>, Vec<Line>),
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
@@ -200,6 +201,87 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
             let if_lines = lex(if_tokens);
             lines.push(Line::If(condition_literal, if_lines));
             i = end_of_if.unwrap() - 1;
+        }
+        Token::ForLoop => {
+            i += 1;
+            let starting_variable_type;
+            match &tokens[i] {
+                Token::TypeI32 => starting_variable_type = Type::I32,
+                _ => starting_variable_type = Type::Bool,
+            }
+            i += 1;
+            let starting_variable_name: String;
+            match &tokens[i] {
+                Token::VariableName(name) => starting_variable_name = name.to_string(),
+                _ => starting_variable_name = "compiler did a fucky wucky".to_string(),
+            }
+            i += 1;
+            let end_of_define_variable =
+                tokens
+                    .iter()
+                    .enumerate()
+                    .skip(i)
+                    .find_map(|(i, token)| match token {
+                        Token::Comma => Some(i),
+                        _ => None,
+                    });
+            let if_variable_value_tokens = tokens[i..end_of_define_variable.unwrap()].to_vec();
+            println!("variable tokens: {:?}", if_variable_value_tokens);
+            let (if_variable_value, _) = lex_expression(&if_variable_value_tokens);
+            i = end_of_define_variable.unwrap() + 1;
+            let end_of_if_condition =
+                tokens
+                    .iter()
+                    .enumerate()
+                    .skip(i)
+                    .find_map(|(i, token)| match token {
+                        Token::Comma => Some(i),
+                        _ => None,
+                    });
+            let if_condition_tokens = tokens[i..end_of_if_condition.unwrap()].to_vec();
+            println!("condition tokens: {:?}", if_condition_tokens);
+            let (if_condition, _) = lex_expression(&if_condition_tokens);
+            i = end_of_if_condition.unwrap() + 1;
+            let end_of_increment =
+                tokens
+                    .iter()
+                    .enumerate()
+                    .skip(i)
+                    .find_map(|(i, token)| match token {
+                        Token::EndParen => Some(i),
+                        _ => None,
+                    });
+            let increment_tokens = tokens[i..end_of_increment.unwrap()].to_vec();
+            println!("increment tokens: {:?}", increment_tokens);
+            let (increment, _) = lex_expression(&increment_tokens);
+            i = end_of_increment.unwrap() + 2;
+            let end_of_for_lines =
+                tokens
+                    .iter()
+                    .enumerate()
+                    .skip(i)
+                    .find_map(|(i, token)| match token {
+                        Token::EndLoop => Some(i),
+                        _ => None,
+                    });
+            let for_tokens = tokens[i..end_of_for_lines.unwrap()].to_vec();
+            println!("for inner tokens: {:?}", for_tokens);
+            let for_lines = lex(for_tokens);
+            i = end_of_for_lines.unwrap() - 1;
+            lines.push(Line::ForLoop(
+                Box::new(Line::DefineVariable(
+                    starting_variable_name.to_string(),
+                    if_variable_value,
+                    starting_variable_type.clone(),
+                )),
+                if_condition,
+                Box::new(Line::DefineVariable(
+                    starting_variable_name.to_string(),
+                    increment,
+                    starting_variable_type.clone(),
+                )),
+                for_lines,
+            ));
         }
         Token::TypeBool => {
             i += 1;
@@ -686,6 +768,53 @@ mod test {
             ),
             Line::EndLoop,
         ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn for_loop() {
+        let actual = lex(vec![
+            Token::ForLoop,
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("0".to_string()),
+            Token::Comma,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::LessThan),
+            Token::ConstantNumber("10".to_string()),
+            Token::Comma,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::Add),
+            Token::ConstantNumber("1".to_string()),
+            Token::EndParen,
+            Token::StartLoop,
+            Token::Print,
+            Token::VariableName("i".to_string()),
+            Token::EndParen,
+            Token::EndLine,
+            Token::EndLoop,
+        ]);
+        let expected = vec![Line::ForLoop(
+            Box::new(Line::DefineVariable(
+                "i".to_string(),
+                Expression::I32(0),
+                Type::I32,
+            )),
+            Expression::Complete(Complete {
+                operator: BinaryOperator::LessThan,
+                left: Box::new(Expression::Variable("i".to_string())),
+                right: Box::new(Expression::I32(10)),
+            }),
+            Box::new(Line::DefineVariable(
+                "i".to_string(),
+                Expression::Complete(Complete {
+                    operator: BinaryOperator::Add,
+                    left: Box::new(Expression::Variable("i".to_string())),
+                    right: Box::new(Expression::I32(1)),
+                }),
+                Type::I32,
+            )),
+            vec![Line::Print(Expression::Variable("i".to_string()))],
+        ), Line::EndLoop];
         assert_eq!(actual, expected);
     }
 }

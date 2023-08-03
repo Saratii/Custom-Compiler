@@ -18,6 +18,7 @@ pub enum Token {
     EndLine,
     If,
     ForLoop,
+    Comma,
     // OpenParen,
 }
 #[derive(PartialEq, Debug, Clone)]
@@ -133,7 +134,8 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
         } else if inputs.starts_with(" >= ") {
             tokens.push(Token::MathOp(MathOp::GreaterThanOrEqualTo));
             inputs = inputs[4..].to_string()
-        } else if inputs.starts_with(", ") {
+        } else if inputs.starts_with(", "){
+            tokens.push(Token::Comma);
             inputs = inputs[2..].to_string()
         } else if inputs.starts_with("for(") {
             tokens.push(Token::ForLoop);
@@ -432,9 +434,11 @@ while (True){
             Token::TypeI32,
             Token::VariableName("i".to_string()),
             Token::ConstantNumber("0".to_string()),
+            Token::Comma,
             Token::VariableName("i".to_string()),
             Token::MathOp(MathOp::LessThan),
             Token::ConstantNumber("10".to_string()),
+            Token::Comma,
             Token::VariableName("i".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("1".to_string()),
