@@ -25,6 +25,10 @@ pub enum BinaryOperator {
     Multiply,
     Divide,
     Equals,
+    LessThan,
+    LessThanOrEqualTo,
+    GreaterThan,
+    GreaterThanOrEqualTo,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub struct Complete {
@@ -64,6 +68,10 @@ impl BinaryOperator {
             BinaryOperator::Divide => 2,
             BinaryOperator::Multiply => 2,
             BinaryOperator::Equals => 0,
+            BinaryOperator::LessThan => 0,
+            BinaryOperator::LessThanOrEqualTo => 0,
+            BinaryOperator::GreaterThan => 0,
+            BinaryOperator::GreaterThanOrEqualTo => 0,
         }
     }
 }
@@ -75,6 +83,14 @@ impl From<&MathOp> for Expression {
             MathOp::Subtract => Expression::BinaryOperator(BinaryOperator::Subtract),
             MathOp::Add => Expression::BinaryOperator(BinaryOperator::Add),
             MathOp::Equals => Expression::BinaryOperator(BinaryOperator::Equals),
+            MathOp::LessThan => Expression::BinaryOperator(BinaryOperator::LessThan),
+            MathOp::LessThanOrEqualTo => {
+                Expression::BinaryOperator(BinaryOperator::LessThanOrEqualTo)
+            }
+            MathOp::GreaterThan => Expression::BinaryOperator(BinaryOperator::GreaterThan),
+            MathOp::GreaterThanOrEqualTo => {
+                Expression::BinaryOperator(BinaryOperator::GreaterThanOrEqualTo)
+            }
         }
     }
 }

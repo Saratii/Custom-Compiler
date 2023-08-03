@@ -82,6 +82,10 @@ impl Complete {
                 BinaryOperator::Multiply => Expression::I32(left * right),
                 BinaryOperator::Divide => Expression::I32(left / right),
                 BinaryOperator::Equals => Expression::Bool(left == right),
+                BinaryOperator::LessThan => Expression::Bool(left < right),
+                BinaryOperator::LessThanOrEqualTo => Expression::Bool(left <= right),
+                BinaryOperator::GreaterThan => Expression::Bool(left > right),
+                BinaryOperator::GreaterThanOrEqualTo => Expression::Bool(left >= right),
             },
             (a, b) => {
                 panic!("learn how to fucking program, {:?} {:?}", a, b);

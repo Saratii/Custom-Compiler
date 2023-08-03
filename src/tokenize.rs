@@ -17,6 +17,7 @@ pub enum Token {
     MathOp(MathOp),
     EndLine,
     If,
+    ForLoop,
     // OpenParen,
 }
 #[derive(PartialEq, Debug, Clone)]
@@ -26,6 +27,10 @@ pub enum MathOp {
     Divide,
     Subtract,
     Equals,
+    LessThan,
+    GreaterThan,
+    LessThanOrEqualTo,
+    GreaterThanOrEqualTo,
 }
 
 pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
@@ -102,11 +107,28 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
         } else if inputs.starts_with(";") {
             tokens.push(Token::EndLine);
             inputs = inputs[1..].to_string();
-        } else if inputs.starts_with("if("){
+        } else if inputs.starts_with("if(") {
             tokens.push(Token::If);
             inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(" == "){
+        } else if inputs.starts_with(" == ") {
             tokens.push(Token::MathOp(MathOp::Equals));
+            inputs = inputs[4..].to_string()
+        } else if inputs.starts_with(" < ") {
+            tokens.push(Token::MathOp(MathOp::LessThan));
+            inputs = inputs[3..].to_string()
+        } else if inputs.starts_with(" <= ") {
+            tokens.push(Token::MathOp(MathOp::LessThanOrEqualTo));
+            inputs = inputs[4..].to_string()
+        } else if inputs.starts_with(" > ") {
+            tokens.push(Token::MathOp(MathOp::GreaterThan));
+            inputs = inputs[3..].to_string()
+        } else if inputs.starts_with(" >= ") {
+            tokens.push(Token::MathOp(MathOp::GreaterThanOrEqualTo));
+            inputs = inputs[4..].to_string()
+        } else if inputs.starts_with(", ") {
+            inputs = inputs[2..].to_string()
+        } else if inputs.starts_with("for(") {
+            tokens.push(Token::ForLoop);
             inputs = inputs[4..].to_string()
         } else if name_regex.is_match(&inputs) {
             let variable_name = name_regex
@@ -373,7 +395,7 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn basic_if(){
+    fn basic_if() {
         let actual = parse_to_tokens("i32 e = 69;if(e == 69){print(e);}");
         let expected = vec![
             Token::TypeI32,
@@ -393,5 +415,22 @@ while (True){
             Token::EndLoop,
         ];
         assert_eq!(actual, expected);
+    }
+    #[test]
+    fn for_loop() {
+        let actual = parse_to_tokens("for(i32 i = 0, i < 10, i++){\nprint(i)\n}");
+        let expected = vec![
+            Token::ForLoop,
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("0".to_string()),
+            Token::EndLine,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::LessThan),
+            Token::ConstantNumber("10".to_string()),
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::Add),
+            Token::ConstantNumber("1".to_string()),
+        ];
     }
 }
