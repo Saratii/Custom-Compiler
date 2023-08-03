@@ -77,6 +77,14 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
             inputs = inputs[constant_number.len()..].to_string();
         } else if inputs.starts_with(" = ") {
             inputs = inputs[3..].to_string();
+        } else if inputs.starts_with("++") {
+            inputs = inputs[2..].to_string();
+            tokens.push(Token::MathOp(MathOp::Add));
+            tokens.push(Token::ConstantNumber("1".to_string()));
+        } else if inputs.starts_with("--") {
+            inputs = inputs[2..].to_string();
+            tokens.push(Token::MathOp(MathOp::Subtract));
+            tokens.push(Token::ConstantNumber("1".to_string()));
         } else if inputs.starts_with("Bool ") {
             tokens.push(Token::TypeBool);
             inputs = inputs[5..].to_string();
@@ -418,19 +426,26 @@ while (True){
     }
     #[test]
     fn for_loop() {
-        let actual = parse_to_tokens("for(i32 i = 0, i < 10, i++){\nprint(i)\n}");
+        let actual = parse_to_tokens("for(i32 i = 0, i < 10, i++){\nprint(i);\n}");
         let expected = vec![
             Token::ForLoop,
             Token::TypeI32,
             Token::VariableName("i".to_string()),
             Token::ConstantNumber("0".to_string()),
-            Token::EndLine,
             Token::VariableName("i".to_string()),
             Token::MathOp(MathOp::LessThan),
             Token::ConstantNumber("10".to_string()),
             Token::VariableName("i".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("1".to_string()),
+            Token::EndParen,
+            Token::StartLoop,
+            Token::Print,
+            Token::VariableName("i".to_string()),
+            Token::EndParen,
+            Token::EndLine,
+            Token::EndLoop,
         ];
+        assert_eq!(actual, expected);
     }
 }
