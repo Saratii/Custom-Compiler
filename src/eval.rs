@@ -67,6 +67,26 @@ pub fn evaluate_line(line: &Line, variables: &mut HashMap<String, (Expression, T
                 _ => println!("compiler done fucked up")
             }
         }
+        Line::ForLoop(define_variable, condition, increment, lines) => {
+            evaluate_line(define_variable, variables);
+            let mut evaluated_condition = condition.evaluate(variables);
+            match evaluated_condition{
+                Expression::Bool(mut value) => {
+                    while value{
+                        for line in lines{
+                            evaluate_line(line, variables);
+                        }
+                        evaluate_line(&** &increment, variables);
+                        evaluated_condition = condition.evaluate(variables);
+                        match evaluated_condition{
+                            Expression::Bool(updated_value) => value = updated_value,
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
         _ => {}
     }
 }

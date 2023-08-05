@@ -226,7 +226,6 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                         _ => None,
                     });
             let if_variable_value_tokens = tokens[i..end_of_define_variable.unwrap()].to_vec();
-            println!("variable tokens: {:?}", if_variable_value_tokens);
             let (if_variable_value, _) = lex_expression(&if_variable_value_tokens);
             i = end_of_define_variable.unwrap() + 1;
             let end_of_if_condition =
@@ -239,7 +238,6 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                         _ => None,
                     });
             let if_condition_tokens = tokens[i..end_of_if_condition.unwrap()].to_vec();
-            println!("condition tokens: {:?}", if_condition_tokens);
             let (if_condition, _) = lex_expression(&if_condition_tokens);
             i = end_of_if_condition.unwrap() + 1;
             let end_of_increment =
@@ -252,7 +250,6 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                         _ => None,
                     });
             let increment_tokens = tokens[i..end_of_increment.unwrap()].to_vec();
-            println!("increment tokens: {:?}", increment_tokens);
             let (increment, _) = lex_expression(&increment_tokens);
             i = end_of_increment.unwrap() + 2;
             let end_of_for_lines =
@@ -265,7 +262,6 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                         _ => None,
                     });
             let for_tokens = tokens[i..end_of_for_lines.unwrap()].to_vec();
-            println!("for inner tokens: {:?}", for_tokens);
             let for_lines = lex(for_tokens);
             i = end_of_for_lines.unwrap() - 1;
             lines.push(Line::ForLoop(
