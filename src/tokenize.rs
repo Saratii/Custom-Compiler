@@ -4,7 +4,8 @@ use regex::Regex;
 pub enum Token {
     Print,
     String(String),
-    EndParen,
+    OpenParen,
+    CloseParen,
     StartBlock,
     EndBlock,
     TypeI32,
@@ -43,9 +44,9 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
 
     let mut tokens = vec![];
     while inputs.len() > 0 {
-        if inputs.starts_with("print(") {
+        if inputs.starts_with("print") {
             tokens.push(Token::Print);
-            inputs = inputs[6..].to_string();
+            inputs = inputs[5..].to_string();
         } else if inputs.starts_with("\"") {
             inputs = inputs[1..].to_string();
             let mut string = "".to_string();
@@ -56,7 +57,7 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
             tokens.push(Token::String(string));
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with(")") {
-            tokens.push(Token::EndParen);
+            tokens.push(Token::CloseParen);
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with("}") {
             tokens.push(Token::EndBlock);
@@ -99,9 +100,12 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
             inputs = inputs[5..].to_string();
         } else if inputs.starts_with("false") {
             panic!("you typed: false, did you mean False?");
-        } else if inputs.starts_with("while (") {
+        } else if inputs.starts_with("while ") {
             tokens.push(Token::WhileLoop);
-            inputs = inputs[7..].to_string();
+            inputs = inputs[6..].to_string();
+        } else if inputs.starts_with("while") {
+            tokens.push(Token::WhileLoop);
+            inputs = inputs[5..].to_string();
         } else if inputs.starts_with("{") {
             tokens.push(Token::StartBlock);
             inputs = inputs[1..].to_string();
@@ -120,9 +124,9 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
         } else if inputs.starts_with(";") {
             tokens.push(Token::EndLine);
             inputs = inputs[1..].to_string();
-        } else if inputs.starts_with("if(") {
+        } else if inputs.starts_with("if") {
             tokens.push(Token::If);
-            inputs = inputs[3..].to_string();
+            inputs = inputs[2..].to_string();
         } else if inputs.starts_with(" == ") {
             tokens.push(Token::MathOp(MathOp::Equals));
             inputs = inputs[4..].to_string()
@@ -141,9 +145,12 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
         } else if inputs.starts_with(", ") {
             tokens.push(Token::Comma);
             inputs = inputs[2..].to_string()
-        } else if inputs.starts_with("for(") {
+        } else if inputs.starts_with("for") {
             tokens.push(Token::ForLoop);
-            inputs = inputs[4..].to_string()
+            inputs = inputs[3..].to_string()
+        } else if inputs.starts_with("(") {
+            tokens.push(Token::OpenParen);
+            inputs = inputs[1..].to_string()
         } else if name_regex.is_match(&inputs) {
             let variable_name = name_regex
                 .captures(&inputs)
@@ -175,8 +182,9 @@ mod test {
         let actual = parse_to_tokens("print(\"hello world\");");
         let expected = vec![
             Token::Print,
+            Token::OpenParen,
             Token::String("hello world".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
@@ -234,8 +242,9 @@ mod test {
             Token::Boolean(true),
             Token::EndLine,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("eee".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
@@ -249,8 +258,9 @@ mod test {
             Token::String("should I kill myself?".to_string()),
             Token::EndLine,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("ee".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
@@ -260,12 +270,14 @@ mod test {
         let actual = parse_to_tokens("while (True){\nprint(69);\n}");
         let expected = vec![
             Token::WhileLoop,
+            Token::OpenParen,
             Token::Boolean(true),
-            Token::EndParen,
+            Token::CloseParen,
             Token::StartBlock,
             Token::Print,
+            Token::OpenParen,
             Token::ConstantNumber("69".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
         ];
@@ -286,12 +298,14 @@ while (True){
             Token::ConstantNumber("69".to_string()),
             Token::EndLine,
             Token::WhileLoop,
+            Token::OpenParen,
             Token::Boolean(true),
-            Token::EndParen,
+            Token::CloseParen,
             Token::StartBlock,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("e".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
         ];
@@ -379,10 +393,11 @@ while (True){
         let actual = parse_to_tokens("print(1 + 69);");
         let expected = vec![
             Token::Print,
+            Token::OpenParen,
             Token::ConstantNumber("1".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("69".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
@@ -400,10 +415,11 @@ while (True){
             Token::ConstantNumber("2".to_string()),
             Token::EndLine,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("e".to_string()),
             Token::MathOp(MathOp::Add),
             Token::VariableName("ee".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
@@ -417,14 +433,16 @@ while (True){
             Token::ConstantNumber("69".to_string()),
             Token::EndLine,
             Token::If,
+            Token::OpenParen,
             Token::VariableName("e".to_string()),
             Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("69".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::StartBlock,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("e".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
         ];
@@ -435,6 +453,7 @@ while (True){
         let actual = parse_to_tokens("for(i32 i = 0, i < 10, i++){\nprint(i);\n}");
         let expected = vec![
             Token::ForLoop,
+            Token::OpenParen,
             Token::TypeI32,
             Token::VariableName("i".to_string()),
             Token::ConstantNumber("0".to_string()),
@@ -446,11 +465,12 @@ while (True){
             Token::VariableName("i".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("1".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::StartBlock,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("i".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
         ];

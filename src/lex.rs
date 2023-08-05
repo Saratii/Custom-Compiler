@@ -177,16 +177,17 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
             i = end_pos.unwrap();
         }
         Token::If => {
-            i += 1;
+            i += 2;
             let end_pos = tokens
                 .iter()
                 .enumerate()
                 .skip(i)
                 .find_map(|(i, token)| match token {
-                    Token::EndParen => Some(i),
+                    Token::CloseParen => Some(i),
                     _ => None,
                 });
             let (condition_literal, _) = lex_expression(&tokens[i..end_pos.unwrap()]);
+            println!("condition literal: {:?}", &tokens[i..end_pos.unwrap()]);
             i = end_pos.unwrap() + 2;
             let end_of_if = tokens
                 .iter()
@@ -196,6 +197,7 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                     Token::EndBlock => Some(i),
                     _ => None,
                 });
+            println!("if line tokens: {:?}", &tokens[i..end_of_if.unwrap()]);
 
             let if_tokens = tokens[i..end_of_if.unwrap()].to_vec();
             let if_lines = lex(if_tokens);
@@ -203,7 +205,7 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
             i = end_of_if.unwrap() - 1;
         }
         Token::ForLoop => {
-            i += 1;
+            i += 2;
             let starting_variable_type;
             match &tokens[i] {
                 Token::TypeI32 => starting_variable_type = Type::I32,
@@ -246,7 +248,7 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                     .enumerate()
                     .skip(i)
                     .find_map(|(i, token)| match token {
-                        Token::EndParen => Some(i),
+                        Token::CloseParen => Some(i),
                         _ => None,
                     });
             let increment_tokens = tokens[i..end_of_increment.unwrap()].to_vec();
@@ -352,7 +354,7 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
             }
         }
         Token::WhileLoop => {
-            i += 1;
+            i += 2;
             match &tokens[i] {
                 Token::Boolean(condition) => {
                     i += 3;
@@ -403,7 +405,8 @@ fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
     let mut stack = Vec::new();
     for token in tokens {
         match token {
-            Token::EndParen => tokens = &tokens[0..tokens.len() - 1],
+            Token::CloseParen => tokens = &tokens[0..tokens.len() - 1],
+            Token::OpenParen => tokens = &tokens[1..],
             _ => {}
         }
     }
@@ -495,8 +498,9 @@ mod test {
     fn test_1() {
         let actual = lex(vec![
             Token::Print,
+            Token::OpenParen,
             Token::String("hello world".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ]);
         let expected = vec![Line::Print(Expression::String("hello world".to_string()))];
@@ -524,8 +528,9 @@ mod test {
             Token::Boolean(true),
             Token::EndLine,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("eee".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ]);
         let expected = vec![
@@ -542,8 +547,9 @@ mod test {
             Token::String("should I kill myself?".to_string()),
             Token::EndLine,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("ee".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ]);
         let expected = vec![
@@ -560,12 +566,14 @@ mod test {
     fn simple_while_loop() {
         let actual = lex(vec![
             Token::WhileLoop,
+            Token::OpenParen,
             Token::Boolean(true),
-            Token::EndParen,
+            Token::CloseParen,
             Token::StartBlock,
             Token::Print,
+            Token::OpenParen,
             Token::String("69".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
         ]);
@@ -691,10 +699,11 @@ mod test {
     fn simple_print_add() {
         let actual = lex(vec![
             Token::Print,
+            Token::OpenParen,
             Token::ConstantNumber("1".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("69".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ]);
         let expected = vec![Line::Print(Expression::Complete(Complete {
@@ -716,10 +725,11 @@ mod test {
             Token::ConstantNumber("2".to_string()),
             Token::EndLine,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("e".to_string()),
             Token::MathOp(MathOp::Add),
             Token::VariableName("ee".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
         ]);
         let expected = vec![
@@ -741,14 +751,16 @@ mod test {
             Token::ConstantNumber("69".to_string()),
             Token::EndLine,
             Token::If,
+            Token::OpenParen,
             Token::VariableName("e".to_string()),
             Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("69".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::StartBlock,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("e".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
         ]);
@@ -770,6 +782,7 @@ mod test {
     fn for_loop() {
         let actual = lex(vec![
             Token::ForLoop,
+            Token::OpenParen,
             Token::TypeI32,
             Token::VariableName("i".to_string()),
             Token::ConstantNumber("0".to_string()),
@@ -781,36 +794,40 @@ mod test {
             Token::VariableName("i".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("1".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::StartBlock,
             Token::Print,
+            Token::OpenParen,
             Token::VariableName("i".to_string()),
-            Token::EndParen,
+            Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
         ]);
-        let expected = vec![Line::ForLoop(
-            Box::new(Line::DefineVariable(
-                "i".to_string(),
-                Expression::I32(0),
-                Type::I32,
-            )),
-            Expression::Complete(Complete {
-                operator: BinaryOperator::LessThan,
-                left: Box::new(Expression::Variable("i".to_string())),
-                right: Box::new(Expression::I32(10)),
-            }),
-            Box::new(Line::DefineVariable(
-                "i".to_string(),
+        let expected = vec![
+            Line::ForLoop(
+                Box::new(Line::DefineVariable(
+                    "i".to_string(),
+                    Expression::I32(0),
+                    Type::I32,
+                )),
                 Expression::Complete(Complete {
-                    operator: BinaryOperator::Add,
+                    operator: BinaryOperator::LessThan,
                     left: Box::new(Expression::Variable("i".to_string())),
-                    right: Box::new(Expression::I32(1)),
+                    right: Box::new(Expression::I32(10)),
                 }),
-                Type::I32,
-            )),
-            vec![Line::Print(Expression::Variable("i".to_string()))],
-        ), Line::EndBlock];
+                Box::new(Line::DefineVariable(
+                    "i".to_string(),
+                    Expression::Complete(Complete {
+                        operator: BinaryOperator::Add,
+                        left: Box::new(Expression::Variable("i".to_string())),
+                        right: Box::new(Expression::I32(1)),
+                    }),
+                    Type::I32,
+                )),
+                vec![Line::Print(Expression::Variable("i".to_string()))],
+            ),
+            Line::EndBlock,
+        ];
         assert_eq!(actual, expected);
     }
 }
