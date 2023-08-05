@@ -1,5 +1,5 @@
-for(i32 i = 0, i < 10, i++){
-    print(i);
+if(True){
+    if(False){
+        print("a");
+    }
 }
-print("");
-print(i);

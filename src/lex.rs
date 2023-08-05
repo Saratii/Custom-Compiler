@@ -4,7 +4,7 @@ pub enum Line {
     Print(Expression),
     DefineVariable(String, Expression, Type),
     WhileLoop(Expression, Vec<Line>),
-    EndLoop,
+    EndBlock,
     If(Expression, Vec<Line>),
     ForLoop(Box<Line>, Expression, Box<Line>, Vec<Line>),
 }
@@ -193,7 +193,7 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                 .enumerate()
                 .skip(i)
                 .find_map(|(i, token)| match token {
-                    Token::EndLoop => Some(i),
+                    Token::EndBlock => Some(i),
                     _ => None,
                 });
 
@@ -258,7 +258,7 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                     .enumerate()
                     .skip(i)
                     .find_map(|(i, token)| match token {
-                        Token::EndLoop => Some(i),
+                        Token::EndBlock => Some(i),
                         _ => None,
                     });
             let for_tokens = tokens[i..end_of_for_lines.unwrap()].to_vec();
@@ -362,7 +362,7 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                             .enumerate()
                             .skip(i)
                             .find_map(|(i, token)| match token {
-                                Token::EndLoop => Some(i),
+                                Token::EndBlock => Some(i),
                                 _ => None,
                             });
                     let while_loop_tokens = tokens[i..end_pos.unwrap()].to_vec();
@@ -393,7 +393,7 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
             ));
             i = end_pos.unwrap();
         }
-        Token::EndLoop => lines.push(Line::EndLoop),
+        Token::EndBlock => lines.push(Line::EndBlock),
         _ => {}
     }
     i
@@ -562,19 +562,19 @@ mod test {
             Token::WhileLoop,
             Token::Boolean(true),
             Token::EndParen,
-            Token::StartLoop,
+            Token::StartBlock,
             Token::Print,
             Token::String("69".to_string()),
             Token::EndParen,
             Token::EndLine,
-            Token::EndLoop,
+            Token::EndBlock,
         ]);
         let expected = vec![
             Line::WhileLoop(
                 Expression::Bool(true),
                 vec![Line::Print(Expression::String("69".to_string()))],
             ),
-            Line::EndLoop,
+            Line::EndBlock,
         ];
         assert_eq!(actual, expected);
     }
@@ -745,12 +745,12 @@ mod test {
             Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("69".to_string()),
             Token::EndParen,
-            Token::StartLoop,
+            Token::StartBlock,
             Token::Print,
             Token::VariableName("e".to_string()),
             Token::EndParen,
             Token::EndLine,
-            Token::EndLoop,
+            Token::EndBlock,
         ]);
         let expected = vec![
             Line::DefineVariable("e".to_string(), Expression::I32(69), Type::I32),
@@ -762,7 +762,7 @@ mod test {
                 }),
                 vec![Line::Print(Expression::Variable("e".to_string()))],
             ),
-            Line::EndLoop,
+            Line::EndBlock,
         ];
         assert_eq!(actual, expected);
     }
@@ -782,12 +782,12 @@ mod test {
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("1".to_string()),
             Token::EndParen,
-            Token::StartLoop,
+            Token::StartBlock,
             Token::Print,
             Token::VariableName("i".to_string()),
             Token::EndParen,
             Token::EndLine,
-            Token::EndLoop,
+            Token::EndBlock,
         ]);
         let expected = vec![Line::ForLoop(
             Box::new(Line::DefineVariable(
@@ -810,7 +810,7 @@ mod test {
                 Type::I32,
             )),
             vec![Line::Print(Expression::Variable("i".to_string()))],
-        ), Line::EndLoop];
+        ), Line::EndBlock];
         assert_eq!(actual, expected);
     }
 }

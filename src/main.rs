@@ -12,6 +12,7 @@ fn main() {
     // println!("{}", new);
     let code = include_str!("sarateese.txt");
     let tokens = tokenize::parse_to_tokens(code);
+    println!("{:?}", tokens);
     let lines = lex::lex(tokens);
     evaluate(lines);
 }

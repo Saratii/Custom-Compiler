@@ -5,8 +5,8 @@ pub enum Token {
     Print,
     String(String),
     EndParen,
-    StartLoop,
-    EndLoop,
+    StartBlock,
+    EndBlock,
     TypeI32,
     TypeString,
     TypeBool,
@@ -59,7 +59,7 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
             tokens.push(Token::EndParen);
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with("}") {
-            tokens.push(Token::EndLoop);
+            tokens.push(Token::EndBlock);
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with("String ") {
             inputs = inputs[7..].to_string();
@@ -92,14 +92,18 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
         } else if inputs.starts_with("True") {
             tokens.push(Token::Boolean(true));
             inputs = inputs[4..].to_string();
+        } else if inputs.starts_with("true") {
+            panic!("you typed: true, did you mean True?");
         } else if inputs.starts_with("False") {
             tokens.push(Token::Boolean(false));
             inputs = inputs[5..].to_string();
+        } else if inputs.starts_with("false") {
+            panic!("you typed: false, did you mean False?");
         } else if inputs.starts_with("while (") {
             tokens.push(Token::WhileLoop);
             inputs = inputs[7..].to_string();
         } else if inputs.starts_with("{") {
-            tokens.push(Token::StartLoop);
+            tokens.push(Token::StartBlock);
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with(" + ") {
             tokens.push(Token::MathOp(MathOp::Add));
@@ -134,7 +138,7 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
         } else if inputs.starts_with(" >= ") {
             tokens.push(Token::MathOp(MathOp::GreaterThanOrEqualTo));
             inputs = inputs[4..].to_string()
-        } else if inputs.starts_with(", "){
+        } else if inputs.starts_with(", ") {
             tokens.push(Token::Comma);
             inputs = inputs[2..].to_string()
         } else if inputs.starts_with("for(") {
@@ -258,12 +262,12 @@ mod test {
             Token::WhileLoop,
             Token::Boolean(true),
             Token::EndParen,
-            Token::StartLoop,
+            Token::StartBlock,
             Token::Print,
             Token::ConstantNumber("69".to_string()),
             Token::EndParen,
             Token::EndLine,
-            Token::EndLoop,
+            Token::EndBlock,
         ];
         assert_eq!(actual, expected);
     }
@@ -284,12 +288,12 @@ while (True){
             Token::WhileLoop,
             Token::Boolean(true),
             Token::EndParen,
-            Token::StartLoop,
+            Token::StartBlock,
             Token::Print,
             Token::VariableName("e".to_string()),
             Token::EndParen,
             Token::EndLine,
-            Token::EndLoop,
+            Token::EndBlock,
         ];
         assert_eq!(actual, expected);
     }
@@ -417,12 +421,12 @@ while (True){
             Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("69".to_string()),
             Token::EndParen,
-            Token::StartLoop,
+            Token::StartBlock,
             Token::Print,
             Token::VariableName("e".to_string()),
             Token::EndParen,
             Token::EndLine,
-            Token::EndLoop,
+            Token::EndBlock,
         ];
         assert_eq!(actual, expected);
     }
@@ -443,12 +447,12 @@ while (True){
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("1".to_string()),
             Token::EndParen,
-            Token::StartLoop,
+            Token::StartBlock,
             Token::Print,
             Token::VariableName("i".to_string()),
             Token::EndParen,
             Token::EndLine,
-            Token::EndLoop,
+            Token::EndBlock,
         ];
         assert_eq!(actual, expected);
     }
