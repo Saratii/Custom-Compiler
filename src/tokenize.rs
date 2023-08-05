@@ -20,7 +20,6 @@ pub enum Token {
     If,
     ForLoop,
     Comma,
-    // OpenParen,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum MathOp {
@@ -472,6 +471,30 @@ while (True){
             Token::VariableName("i".to_string()),
             Token::CloseParen,
             Token::EndLine,
+            Token::EndBlock,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn double_if(){
+        let actual = parse_to_tokens("if(True){if(False){print(\"a\");}}");
+        let expected = vec![
+            Token::If,
+            Token::OpenParen,
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::If,
+            Token::OpenParen,
+            Token::Boolean(false),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::Print,
+            Token::OpenParen,
+            Token::String("a".to_string()),
+            Token::CloseParen,
+            Token::EndLine,
+            Token::EndBlock,
             Token::EndBlock,
         ];
         assert_eq!(actual, expected);

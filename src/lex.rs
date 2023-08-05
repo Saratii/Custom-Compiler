@@ -187,7 +187,6 @@ fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> us
                     _ => None,
                 });
             let (condition_literal, _) = lex_expression(&tokens[i..end_pos.unwrap()]);
-            println!("condition literal: {:?}", &tokens[i..end_pos.unwrap()]);
             i = end_pos.unwrap() + 2;
             let end_of_if = tokens
                 .iter()
@@ -827,6 +826,36 @@ mod test {
                 vec![Line::Print(Expression::Variable("i".to_string()))],
             ),
             Line::EndBlock,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn double_if(){
+        let actual = lex(vec![
+            Token::If,
+            Token::OpenParen,
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::If,
+            Token::OpenParen,
+            Token::Boolean(false),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::Print,
+            Token::OpenParen,
+            Token::String("a".to_string()),
+            Token::CloseParen,
+            Token::EndLine,
+            Token::EndBlock,
+            Token::EndBlock,
+        ]);
+        let expected = vec![
+            Line::If(Expression::Bool(true), vec![
+                Line::If(Expression::Bool(true), vec![
+                    Line::Print(Expression::String("a".to_string()))
+                ])
+            ])
         ];
         assert_eq!(actual, expected);
     }
