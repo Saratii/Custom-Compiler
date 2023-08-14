@@ -1,7 +1,12 @@
-for(i32 i = 0, i < 10, i++){
-    if(True){
-        if(True){
-            print("eb");
+i32 sum = 0;
+for(i32 i = 0, i < 1000, i++){
+    if(i % 5 == 0){
+        sum = sum + i;
+    }
+    if(i % 5 != 0){
+        if(i % 3 == 0){
+            sum = sum + i;
         }
     }
 }
+print(sum);

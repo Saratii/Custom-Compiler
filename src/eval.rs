@@ -56,29 +56,29 @@ pub fn evaluate_line(line: &Line, variables: &mut HashMap<String, (Expression, T
         },
         Line::If(condition, lines) => {
             let final_condition = condition.evaluate(variables);
-            match final_condition{
+            match final_condition {
                 Expression::Bool(value) => {
-                    if value{
-                        for line in lines{
+                    if value {
+                        for line in lines {
                             evaluate_line(line, variables);
                         }
                     }
                 }
-                _ => println!("compiler done fucked up")
+                _ => println!("compiler done fucked up"),
             }
         }
         Line::ForLoop(define_variable, condition, increment, lines) => {
             evaluate_line(define_variable, variables);
             let mut evaluated_condition = condition.evaluate(variables);
-            match evaluated_condition{
+            match evaluated_condition {
                 Expression::Bool(mut value) => {
-                    while value{
-                        for line in lines{
+                    while value {
+                        for line in lines {
                             evaluate_line(line, variables);
                         }
-                        evaluate_line(&** &increment, variables);
+                        evaluate_line(&**&increment, variables);
                         evaluated_condition = condition.evaluate(variables);
-                        match evaluated_condition{
+                        match evaluated_condition {
                             Expression::Bool(updated_value) => value = updated_value,
                             _ => {}
                         }
@@ -106,6 +106,8 @@ impl Complete {
                 BinaryOperator::LessThanOrEqualTo => Expression::Bool(left <= right),
                 BinaryOperator::GreaterThan => Expression::Bool(left > right),
                 BinaryOperator::GreaterThanOrEqualTo => Expression::Bool(left >= right),
+                BinaryOperator::Modulus => Expression::I32(left % right),
+                BinaryOperator::NotEqual => Expression::Bool(left != right),
             },
             (a, b) => {
                 panic!("learn how to fucking program, {:?} {:?}", a, b);

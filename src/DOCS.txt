@@ -1,0 +1,67 @@
+Welcome to Sarateese!
+
+PRINT
+print([expression]);
+ex.
+print("hello world"); -> hello world
+print(1 + 1); -> 2
+print(1 + 1 == 2); -> True
+i32 a = 5;
+print(a); -> 5
+
+VARIABLES
+[variable type] [variable name] = [value];
+ex.
+String s = "hello world";
+i32 eleven = 11;
+Bool red = False;
+
+WHILE
+while([expression -> condition]){
+    [lines to be executed]
+}
+ex.
+while(True){
+    print("foo");
+}
+Bool a = True;
+while(a){
+    print("bar");
+}
+
+IF
+if([expression -> condition]){
+    [lines to be executed]
+}
+ex.
+if(True){
+    print("foo");
+}
+Bool a = True;
+if(a){
+    print("bar");
+}
+
+FOR
+#warning no variable scope cause is hawd 👉👈🥺
+for([variable type] [variable name] = [initial value], [expression -> condition], [increment]){
+    [lines to be executed]
+}
+ex.
+for(i32 i = 0; i < 10; i++){
+    print(i); -> 0 1 2 3 4 5 6 7 8 9
+}
+
+MATH OPS
+#includes order of operations
+a + b
+a - b
+a * b
+a / b
+a % b
+a == b
+a != b
+a > b
+a >= b
+a < b
+a <= b

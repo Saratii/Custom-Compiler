@@ -22,6 +22,9 @@ pub enum Token {
     If,
     ForLoop,
     Comma,
+    Ignore,
+    IncrementUp,
+    IncrementDown,
 }
 
 impl Display for Token {
@@ -45,6 +48,9 @@ impl Display for Token {
             Token::If => write!(f, "If"),
             Token::ForLoop => write!(f, "ForLoop"),
             Token::Comma => write!(f, "Comma"),
+            Token::Ignore => write!(f, "Ignore"),
+            Token::IncrementUp => write!(f, "IncrementUp"),
+            Token::IncrementDown => write!(f, "IncrementDown"),
         }
     }
 }
@@ -55,53 +61,45 @@ pub enum MathOp {
     Multiply,
     Divide,
     Subtract,
+    Modulus,
     Equals,
+    NotEqual,
     LessThan,
     GreaterThan,
     LessThanOrEqualTo,
     GreaterThanOrEqualTo,
 }
 
-static KEYWORDS: &'static [(&str, &[Token])] = &[
-    ("print", &[Token::Print]),
-    ("(", &[Token::OpenParen]),
-    (")", &[Token::CloseParen]),
-    ("}", &[Token::EndBlock]),
-    ("{", &[Token::StartBlock]),
-    ("String ", &[Token::TypeString]),
-    ("i32 ", &[Token::TypeI32]),
-    ("Bool ", &[Token::TypeBool]),
-    (" + ", &[Token::MathOp(MathOp::Add)]),
-    (" - ", &[Token::MathOp(MathOp::Subtract)]),
-    (" * ", &[Token::MathOp(MathOp::Multiply)]),
-    (" / ", &[Token::MathOp(MathOp::Divide)]),
-    (" > ", &[Token::MathOp(MathOp::GreaterThan)]),
-    (" < ", &[Token::MathOp(MathOp::LessThan)]),
-    (" >= ", &[Token::MathOp(MathOp::GreaterThanOrEqualTo)]),
-    (" <= ", &[Token::MathOp(MathOp::LessThanOrEqualTo)]),
-    (", ", &[Token::Comma]),
-    (" == ", &[Token::MathOp(MathOp::Equals)]),
-    ("True", &[Token::Boolean(true)]),
-    ("False", &[Token::Boolean(false)]),
-    (";", &[Token::EndLine]),
-    ("while ", &[Token::WhileLoop]),
-    ("for", &[Token::ForLoop]),
-    ("if", &[Token::If]),
-    (" = ", &[]),
-    // (
-    //     "++",
-    //     &[
-    //         Token::MathOp(MathOp::Add),
-    //         Token::ConstantNumber(&'static "1"),
-    //     ],
-    // ),
-    // (
-    //     "--",
-    //     &[
-    //         Token::MathOp(MathOp::Subtract),
-    //         Token::ConstantNumber("1".to_string()),
-    //     ],
-    // ),
+static KEYWORDS: &'static [(&str, Token)] = &[
+    ("print", Token::Print),
+    ("(", Token::OpenParen),
+    (")", Token::CloseParen),
+    ("}", Token::EndBlock),
+    ("{", Token::StartBlock),
+    ("String ", Token::TypeString),
+    ("i32 ", Token::TypeI32),
+    ("Bool ", Token::TypeBool),
+    (" + ", Token::MathOp(MathOp::Add)),
+    (" - ", Token::MathOp(MathOp::Subtract)),
+    (" * ", Token::MathOp(MathOp::Multiply)),
+    (" / ", Token::MathOp(MathOp::Divide)),
+    (" % ", Token::MathOp(MathOp::Modulus)),
+    (" > ", Token::MathOp(MathOp::GreaterThan)),
+    (" < ", Token::MathOp(MathOp::LessThan)),
+    (" >= ", Token::MathOp(MathOp::GreaterThanOrEqualTo)),
+    (" <= ", Token::MathOp(MathOp::LessThanOrEqualTo)),
+    (", ", Token::Comma),
+    (" == ", Token::MathOp(MathOp::Equals)),
+    (" != ", Token::MathOp(MathOp::NotEqual)),
+    ("True", Token::Boolean(true)),
+    ("False", Token::Boolean(false)),
+    (";", Token::EndLine),
+    ("while ", Token::WhileLoop),
+    ("for", Token::ForLoop),
+    ("if", Token::If),
+    (" = ", Token::Ignore),
+    ("++", Token::IncrementUp),
+    ("--", Token::IncrementDown),
 ];
 
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
@@ -112,13 +110,10 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
 
     let mut tokens = VecDeque::new();
-    'outer: while inputs.len() > 0 {
-        println!("{:?}", inputs);
-        for (keyword, token_macro) in KEYWORDS {
+    'outer: while &inputs.len() > &0 {
+        for (keyword, token) in KEYWORDS {
             if inputs.starts_with(keyword) {
-                for i in 0..token_macro.len() {
-                    tokens.push_back(token_macro[i].clone());
-                }
+                tokens.push_back(token.clone());
                 inputs = inputs[keyword.len()..].to_string();
                 continue 'outer;
             }
@@ -141,14 +136,6 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
                 .as_str();
             tokens.push_back(Token::ConstantNumber(constant_number.to_string()));
             inputs = inputs[constant_number.len()..].to_string();
-        } else if inputs.starts_with("++") {
-            inputs = inputs[2..].to_string();
-            tokens.push_back(Token::MathOp(MathOp::Add));
-            tokens.push_back(Token::ConstantNumber("1".to_string()));
-        } else if inputs.starts_with("--") {
-            inputs = inputs[2..].to_string();
-            tokens.push_back(Token::MathOp(MathOp::Subtract));
-            tokens.push_back(Token::ConstantNumber("1".to_string()));
         } else if inputs.starts_with("true") {
             panic!("you typed: true, did you mean True?");
         } else if inputs.starts_with("false") {
@@ -169,6 +156,7 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
             break;
         }
     }
+    tokens.retain(|token| *token != Token::Ignore);
     tokens
 }
 
@@ -465,8 +453,7 @@ while (True){
             Token::ConstantNumber("10".to_string()),
             Token::Comma,
             Token::VariableName("i".to_string()),
-            Token::MathOp(MathOp::Add),
-            Token::ConstantNumber("1".to_string()),
+            Token::IncrementUp,
             Token::CloseParen,
             Token::StartBlock,
             Token::Print,

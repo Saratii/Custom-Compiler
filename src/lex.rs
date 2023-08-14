@@ -27,7 +27,9 @@ pub enum BinaryOperator {
     Subtract,
     Multiply,
     Divide,
+    Modulus,
     Equals,
+    NotEqual,
     LessThan,
     LessThanOrEqualTo,
     GreaterThan,
@@ -71,16 +73,20 @@ impl BinaryOperator {
             BinaryOperator::Divide => 2,
             BinaryOperator::Multiply => 2,
             BinaryOperator::Equals => 0,
+            BinaryOperator::NotEqual => 0,
             BinaryOperator::LessThan => 0,
             BinaryOperator::LessThanOrEqualTo => 0,
             BinaryOperator::GreaterThan => 0,
             BinaryOperator::GreaterThanOrEqualTo => 0,
+            BinaryOperator::Modulus => 2,
         }
     }
 }
 impl From<&MathOp> for Expression {
     fn from(op: &MathOp) -> Expression {
         match op {
+            MathOp::NotEqual => Expression::BinaryOperator(BinaryOperator::NotEqual),
+            MathOp::Modulus => Expression::BinaryOperator(BinaryOperator::Modulus),
             MathOp::Multiply => Expression::BinaryOperator(BinaryOperator::Multiply),
             MathOp::Divide => Expression::BinaryOperator(BinaryOperator::Divide),
             MathOp::Subtract => Expression::BinaryOperator(BinaryOperator::Subtract),
@@ -151,7 +157,6 @@ pub enum Type {
     I32,
 }
 pub fn parse(mut tokens: VecDeque<Token>) -> Vec<Line> {
-    println!("tokens: {:?}", tokens);
     let mut lines = vec![];
     while tokens.len() > 0 {
         let mut block_count = 0;
@@ -277,8 +282,11 @@ fn process_token(tokens: &mut VecDeque<Token>, lines: &mut Vec<Line>, block_coun
                     }
                     Token::EndBlock => {
                         block_tokens.push_back(next_token);
-                        lines.push(Line::EndBlock);
                         *block_count -= 1;
+                    }
+                    Token::StartBlock => {
+                        *block_count += 1;
+                        block_tokens.push_back(next_token)
                     }
                     _ => block_tokens.push_back(next_token),
                 }
@@ -354,15 +362,29 @@ fn process_token(tokens: &mut VecDeque<Token>, lines: &mut Vec<Line>, block_coun
                     }
                     Token::EndBlock => {
                         block_tokens.push_back(next_token);
-                        lines.push(Line::EndBlock);
                         *block_count -= 1;
+                    }
+                    Token::StartBlock => {
+                        *block_count += 1;
+                        block_tokens.push_back(next_token)
                     }
                     _ => block_tokens.push_back(next_token),
                 }
             }
         }
         Token::VariableName(name) => {
+            let next = tokens.pop_front().unwrap();
             let mut expression_tokens = Vec::new();
+            match &next {
+                Token::IncrementDown => {
+                    expression_tokens.push(Token::VariableName(name.clone()));
+                }
+                Token::IncrementUp => {
+                    expression_tokens.push(Token::VariableName(name.clone()));
+                }
+                _ => {}
+            }
+            tokens.push_front(next);
             loop {
                 let next_token = tokens.pop_front().unwrap();
                 match next_token {
@@ -370,7 +392,6 @@ fn process_token(tokens: &mut VecDeque<Token>, lines: &mut Vec<Line>, block_coun
                     _ => expression_tokens.push(next_token),
                 }
             }
-
             let (expression, literal_type) = lex_expression(&expression_tokens);
             lines.push(Line::DefineVariable(
                 name.to_string(),
@@ -404,6 +425,34 @@ fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
             _ => {}
         }
     }
+
+    match &tokens[0] {
+        Token::VariableName(name) => match &tokens[1] {
+            Token::IncrementDown => {
+                return (
+                    Expression::Complete(Complete {
+                        operator: BinaryOperator::Subtract,
+                        left: Box::new(Expression::Variable(name.to_string())),
+                        right: Box::new(Expression::I32(1)),
+                    }),
+                    Type::I32,
+                )
+            }
+            Token::IncrementUp => {
+                return (
+                    Expression::Complete(Complete {
+                        operator: BinaryOperator::Add,
+                        left: Box::new(Expression::Variable(name.to_string())),
+                        right: Box::new(Expression::I32(1)),
+                    }),
+                    Type::I32,
+                )
+            }
+            _ => {}
+        },
+        _ => {}
+    }
+
     let mut i = 0;
     while i < tokens.len() {
         match &tokens[i] {
@@ -775,8 +824,7 @@ mod test {
             Token::ConstantNumber("10".to_string()),
             Token::Comma,
             Token::VariableName("i".to_string()),
-            Token::MathOp(MathOp::Add),
-            Token::ConstantNumber("1".to_string()),
+            Token::IncrementUp,
             Token::CloseParen,
             Token::StartBlock,
             Token::Print,
@@ -898,6 +946,31 @@ mod test {
                 ],
             ),
             Line::EndBlock,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn increment_test() {
+        let actual = parse(VecDeque::from([
+            Token::TypeI32,
+            Token::VariableName("w".to_string()),
+            Token::ConstantNumber("68".to_string()),
+            Token::EndLine,
+            Token::VariableName("w".to_string()),
+            Token::IncrementDown,
+            Token::EndLine,
+        ]));
+        let expected = vec![
+            Line::DefineVariable("w".to_string(), Expression::I32(68), Type::I32),
+            Line::DefineVariable(
+                "w".to_string(),
+                Expression::Complete(Complete {
+                    operator: BinaryOperator::Subtract,
+                    left: Box::new(Expression::Variable("w".to_string())),
+                    right: Box::new(Expression::I32(1)),
+                }),
+                Type::I32,
+            ),
         ];
         assert_eq!(actual, expected);
     }
