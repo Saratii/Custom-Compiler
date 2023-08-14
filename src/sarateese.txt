@@ -1,5 +1,7 @@
-if(True){
-    if(False){
-        print("a");
+for(i32 i = 0, i < 10, i++){
+    if(True){
+        if(True){
+            print("eb");
+        }
     }
 }

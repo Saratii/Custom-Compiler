@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::tokenize::{MathOp, Token};
 #[derive(PartialEq, Debug, Clone)]
 pub enum Line {
@@ -148,256 +150,236 @@ pub enum Type {
     String,
     I32,
 }
-pub fn lex(tokens: Vec<Token>) -> Vec<Line> {
+pub fn parse(mut tokens: VecDeque<Token>) -> Vec<Line> {
+    println!("tokens: {:?}", tokens);
     let mut lines = vec![];
-    let mut i = 0;
-    while i < tokens.len() {
-        i = process_token(i, &tokens, &mut lines);
-        i += 1;
+    while tokens.len() > 0 {
+        let mut block_count = 0;
+        process_token(&mut tokens, &mut lines, &mut block_count);
     }
     lines
 }
 
-fn process_token(index: usize, tokens: &Vec<Token>, lines: &mut Vec<Line>) -> usize {
-    let mut i = index;
-    match &tokens[i] {
+fn process_token(tokens: &mut VecDeque<Token>, lines: &mut Vec<Line>, block_count: &mut usize) {
+    match tokens.pop_front().unwrap() {
         Token::Print => {
-            i += 1;
-            let end_pos = tokens
-                .iter()
-                .enumerate()
-                .skip(i)
-                .find_map(|(i, token)| match token {
-                    Token::EndLine => Some(i),
-                    _ => None,
-                });
-            let (literal, _) = lex_expression(&tokens[i..end_pos.unwrap()]);
+            let mut expression_tokens = Vec::new();
+            tokens.pop_front(); //remove start paren
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::CloseParen => break,
+                    _ => expression_tokens.push(next_token),
+                }
+            }
+            tokens.pop_front(); //remove end line
+            let (literal, _) = lex_expression(&expression_tokens);
             lines.push(Line::Print(literal));
-
-            i = end_pos.unwrap();
         }
         Token::If => {
-            i += 2;
-            let end_pos = tokens
-                .iter()
-                .enumerate()
-                .skip(i)
-                .find_map(|(i, token)| match token {
-                    Token::CloseParen => Some(i),
-                    _ => None,
-                });
-            let (condition_literal, _) = lex_expression(&tokens[i..end_pos.unwrap()]);
-            i = end_pos.unwrap() + 2;
-            let end_of_if = tokens
-                .iter()
-                .enumerate()
-                .skip(i)
-                .find_map(|(i, token)| match token {
-                    Token::EndBlock => Some(i),
-                    _ => None,
-                });
-            println!("if line tokens: {:?}", &tokens[i..end_of_if.unwrap()]);
-
-            let if_tokens = tokens[i..end_of_if.unwrap()].to_vec();
-            let if_lines = lex(if_tokens);
-            lines.push(Line::If(condition_literal, if_lines));
-            i = end_of_if.unwrap() - 1;
+            tokens.pop_front(); //remove paren
+            let mut condition_tokens = Vec::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::CloseParen => break,
+                    _ => condition_tokens.push(next_token),
+                }
+            }
+            tokens.pop_front(); //remove start block
+            *block_count += 1;
+            let mut block_tokens = VecDeque::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::EndBlock if *block_count == 1 => {
+                        let (condition, _) = lex_expression(&condition_tokens);
+                        let block_lines = parse(block_tokens);
+                        lines.push(Line::If(condition, block_lines));
+                        lines.push(Line::EndBlock);
+                        break;
+                    }
+                    Token::EndBlock => {
+                        block_tokens.push_back(next_token);
+                        *block_count -= 1;
+                    }
+                    Token::StartBlock => {
+                        *block_count += 1;
+                        block_tokens.push_back(next_token);
+                    }
+                    _ => block_tokens.push_back(next_token),
+                }
+            }
         }
         Token::ForLoop => {
-            i += 2;
+            tokens.pop_front(); //remove start paren
             let starting_variable_type;
-            match &tokens[i] {
+            match tokens.pop_front().unwrap() {
                 Token::TypeI32 => starting_variable_type = Type::I32,
                 _ => starting_variable_type = Type::Bool,
             }
-            i += 1;
             let starting_variable_name: String;
-            match &tokens[i] {
+            match tokens.pop_front().unwrap() {
                 Token::VariableName(name) => starting_variable_name = name.to_string(),
-                _ => starting_variable_name = "compiler did a fucky wucky".to_string(),
+                _ => panic!("parser found non variable name after variable type in ForLoop"),
             }
-            i += 1;
-            let end_of_define_variable =
-                tokens
-                    .iter()
-                    .enumerate()
-                    .skip(i)
-                    .find_map(|(i, token)| match token {
-                        Token::Comma => Some(i),
-                        _ => None,
-                    });
-            let if_variable_value_tokens = tokens[i..end_of_define_variable.unwrap()].to_vec();
-            let (if_variable_value, _) = lex_expression(&if_variable_value_tokens);
-            i = end_of_define_variable.unwrap() + 1;
-            let end_of_if_condition =
-                tokens
-                    .iter()
-                    .enumerate()
-                    .skip(i)
-                    .find_map(|(i, token)| match token {
-                        Token::Comma => Some(i),
-                        _ => None,
-                    });
-            let if_condition_tokens = tokens[i..end_of_if_condition.unwrap()].to_vec();
-            let (if_condition, _) = lex_expression(&if_condition_tokens);
-            i = end_of_if_condition.unwrap() + 1;
-            let end_of_increment =
-                tokens
-                    .iter()
-                    .enumerate()
-                    .skip(i)
-                    .find_map(|(i, token)| match token {
-                        Token::CloseParen => Some(i),
-                        _ => None,
-                    });
-            let increment_tokens = tokens[i..end_of_increment.unwrap()].to_vec();
-            let (increment, _) = lex_expression(&increment_tokens);
-            i = end_of_increment.unwrap() + 2;
-            let end_of_for_lines =
-                tokens
-                    .iter()
-                    .enumerate()
-                    .skip(i)
-                    .find_map(|(i, token)| match token {
-                        Token::EndBlock => Some(i),
-                        _ => None,
-                    });
-            let for_tokens = tokens[i..end_of_for_lines.unwrap()].to_vec();
-            let for_lines = lex(for_tokens);
-            i = end_of_for_lines.unwrap() - 1;
-            lines.push(Line::ForLoop(
-                Box::new(Line::DefineVariable(
-                    starting_variable_name.to_string(),
-                    if_variable_value,
-                    starting_variable_type.clone(),
-                )),
-                if_condition,
-                Box::new(Line::DefineVariable(
-                    starting_variable_name.to_string(),
-                    increment,
-                    starting_variable_type.clone(),
-                )),
-                for_lines,
-            ));
+            let mut variable_init_tokens = Vec::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::Comma => break,
+                    _ => variable_init_tokens.push(next_token),
+                }
+            }
+            let mut condition_tokens = Vec::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::Comma => break,
+                    _ => condition_tokens.push(next_token),
+                }
+            }
+            let mut increment_tokens = Vec::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::CloseParen => break,
+                    _ => increment_tokens.push(next_token),
+                }
+            }
+            tokens.pop_front(); //remove start block
+            *block_count += 1;
+            let mut block_tokens = VecDeque::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::EndBlock if *block_count == 1 => {
+                        let (variable_init_value, _) = lex_expression(&variable_init_tokens);
+                        let (condition, _) = lex_expression(&condition_tokens);
+                        let (increment, _) = lex_expression(&increment_tokens);
+                        let block_lines = parse(block_tokens);
+                        lines.push(Line::ForLoop(
+                            Box::new(Line::DefineVariable(
+                                starting_variable_name.to_string(),
+                                variable_init_value,
+                                starting_variable_type.clone(),
+                            )),
+                            condition,
+                            Box::new(Line::DefineVariable(
+                                starting_variable_name.to_string(),
+                                increment,
+                                starting_variable_type.clone(),
+                            )),
+                            block_lines,
+                        ));
+                        lines.push(Line::EndBlock);
+                        break;
+                    }
+                    Token::EndBlock => {
+                        block_tokens.push_back(next_token);
+                        lines.push(Line::EndBlock);
+                        *block_count -= 1;
+                    }
+                    _ => block_tokens.push_back(next_token),
+                }
+            }
         }
-        Token::TypeBool => {
-            i += 1;
-            match &tokens[i] {
-                Token::VariableName(name) => {
-                    i += 1;
-                    match &tokens[i] {
-                        Token::Boolean(expression) => lines.push(Line::DefineVariable(
-                            name.to_string(),
-                            Expression::Bool(expression.clone()),
-                            Type::Bool,
-                        )),
-                        _ => println!(
-                            "{}",
-                            &format!(
-                                "Oopsie Woopsie: invalid token following a variable name: {:?}",
-                                tokens[i]
-                            )
-                        ),
+        Token::TypeBool => match tokens.pop_front().unwrap() {
+            Token::VariableName(name) => {
+                let mut expression_tokens = Vec::new();
+                loop {
+                    let next_token = tokens.pop_front().unwrap();
+                    match next_token {
+                        Token::EndLine => break,
+                        _ => expression_tokens.push(next_token),
                     }
                 }
-                _ => println!(
-                    "{}",
-                    &format!(
-                        "Oopsie Woopsie: invalid token following Bool: {:?}",
-                        tokens[i]
-                    )
-                ),
+                let (expression, _) = lex_expression(&expression_tokens);
+                lines.push(Line::DefineVariable(name, expression, Type::Bool));
             }
-        }
-        Token::TypeString => {
-            i += 1;
-            match &tokens[i] {
-                Token::VariableName(name) => {
-                    i += 1;
-                    match &tokens[i] {
-                        Token::String(expression) => lines.push(Line::DefineVariable(
-                            name.to_string(),
-                            Expression::String(expression.to_string()),
-                            Type::String,
-                        )),
-                        _ => {}
+            _ => panic!("found on variable name after TypeBool"),
+        },
+        Token::TypeString => match tokens.pop_front().unwrap() {
+            Token::VariableName(name) => {
+                let mut expression_tokens = Vec::new();
+                loop {
+                    let next_token = tokens.pop_front().unwrap();
+                    match next_token {
+                        Token::EndLine => break,
+                        _ => expression_tokens.push(next_token),
                     }
                 }
-                _ => {}
+                let (expression, _) = lex_expression(&expression_tokens);
+                lines.push(Line::DefineVariable(name, expression, Type::String));
             }
-        }
-        Token::TypeI32 => {
-            i += 1;
-            match &tokens[i] {
-                Token::VariableName(name) => {
-                    i += 1;
-                    let end_pos =
-                        tokens
-                            .iter()
-                            .enumerate()
-                            .skip(i)
-                            .find_map(|(i, token)| match token {
-                                Token::EndLine => Some(i),
-                                _ => None,
-                            });
-                    let (literal, literal_type) = lex_expression(&tokens[i..end_pos.unwrap()]);
-                    lines.push(Line::DefineVariable(
-                        name.to_string(),
-                        literal,
-                        literal_type,
-                    ));
-
-                    i = end_pos.unwrap();
+            _ => panic!("found on variable name after TypeString"),
+        },
+        Token::TypeI32 => match tokens.pop_front().unwrap() {
+            Token::VariableName(name) => {
+                let mut expression_tokens = Vec::new();
+                loop {
+                    let next_token = tokens.pop_front().unwrap();
+                    match next_token {
+                        Token::EndLine => break,
+                        _ => expression_tokens.push(next_token),
+                    }
                 }
-                _ => {}
+                let (expression, _) = lex_expression(&expression_tokens);
+                lines.push(Line::DefineVariable(name, expression, Type::I32));
             }
-        }
+            _ => panic!("found on variable name after TypeBool"),
+        },
         Token::WhileLoop => {
-            i += 2;
-            match &tokens[i] {
-                Token::Boolean(condition) => {
-                    i += 3;
-                    let end_pos =
-                        tokens
-                            .iter()
-                            .enumerate()
-                            .skip(i)
-                            .find_map(|(i, token)| match token {
-                                Token::EndBlock => Some(i),
-                                _ => None,
-                            });
-                    let while_loop_tokens = tokens[i..end_pos.unwrap()].to_vec();
-                    let while_loop_lines = lex(while_loop_tokens);
-                    lines.push(Line::WhileLoop(
-                        Expression::Bool(*condition),
-                        while_loop_lines,
-                    ));
+            tokens.pop_front(); //remove paren
+            let mut condition_tokens = Vec::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::CloseParen => break,
+                    _ => condition_tokens.push(next_token),
                 }
-                _ => todo!(),
+            }
+            tokens.pop_front(); //remove start block
+            *block_count += 1;
+            let mut block_tokens = VecDeque::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::EndBlock if *block_count == 1 => {
+                        let (condition, _) = lex_expression(&condition_tokens);
+                        let block_lines = parse(block_tokens);
+                        lines.push(Line::WhileLoop(condition, block_lines));
+                        lines.push(Line::EndBlock);
+                        break;
+                    }
+                    Token::EndBlock => {
+                        block_tokens.push_back(next_token);
+                        lines.push(Line::EndBlock);
+                        *block_count -= 1;
+                    }
+                    _ => block_tokens.push_back(next_token),
+                }
             }
         }
         Token::VariableName(name) => {
-            i += 1;
-            let end_pos = tokens
-                .iter()
-                .enumerate()
-                .skip(i)
-                .find_map(|(i, token)| match token {
-                    Token::EndLine => Some(i),
-                    _ => None,
-                });
-            let (literal, literal_type) = lex_expression(&tokens[i..end_pos.unwrap()]);
+            let mut expression_tokens = Vec::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::EndLine => break,
+                    _ => expression_tokens.push(next_token),
+                }
+            }
+
+            let (expression, literal_type) = lex_expression(&expression_tokens);
             lines.push(Line::DefineVariable(
                 name.to_string(),
-                literal,
+                expression,
                 literal_type,
             ));
-            i = end_pos.unwrap();
         }
-        Token::EndBlock => lines.push(Line::EndBlock),
         _ => {}
     }
-    i
 }
 
 fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
@@ -488,30 +470,32 @@ fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
 }
 #[cfg(test)]
 mod test {
-    use super::{lex, Line, Type};
+    use super::{parse, Line, Type};
     use crate::{
         lex::{BinaryOperator, Complete, Expression},
         tokenize::{MathOp, Token},
     };
+    use std::collections::VecDeque;
     #[test]
     fn test_1() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::Print,
             Token::OpenParen,
             Token::String("hello world".to_string()),
             Token::CloseParen,
             Token::EndLine,
-        ]);
+        ]));
         let expected = vec![Line::Print(Expression::String("hello world".to_string()))];
         assert_eq!(actual, expected);
     }
     #[test]
     fn bool_test() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::TypeBool,
             Token::VariableName("peepaw".to_string()),
             Token::Boolean(true),
-        ]);
+            Token::EndLine,
+        ]));
         let expected = vec![Line::DefineVariable(
             "peepaw".to_string(),
             Expression::Bool(true),
@@ -521,7 +505,7 @@ mod test {
     }
     #[test]
     fn print_variable_test() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::TypeBool,
             Token::VariableName("eee".to_string()),
             Token::Boolean(true),
@@ -531,7 +515,7 @@ mod test {
             Token::VariableName("eee".to_string()),
             Token::CloseParen,
             Token::EndLine,
-        ]);
+        ]));
         let expected = vec![
             Line::DefineVariable("eee".to_string(), Expression::Bool(true), Type::Bool),
             Line::Print(Expression::Variable("eee".to_string())),
@@ -540,7 +524,7 @@ mod test {
     }
     #[test]
     fn print_string_test() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::TypeString,
             Token::VariableName("ee".to_string()),
             Token::String("should I kill myself?".to_string()),
@@ -550,7 +534,7 @@ mod test {
             Token::VariableName("ee".to_string()),
             Token::CloseParen,
             Token::EndLine,
-        ]);
+        ]));
         let expected = vec![
             Line::DefineVariable(
                 "ee".to_string(),
@@ -563,7 +547,7 @@ mod test {
     }
     #[test]
     fn simple_while_loop() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::WhileLoop,
             Token::OpenParen,
             Token::Boolean(true),
@@ -575,7 +559,7 @@ mod test {
             Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
-        ]);
+        ]));
         let expected = vec![
             Line::WhileLoop(
                 Expression::Bool(true),
@@ -587,7 +571,7 @@ mod test {
     }
     #[test]
     fn change_variable() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::TypeI32,
             Token::VariableName("i".to_string()),
             Token::ConstantNumber("0".to_string()),
@@ -609,7 +593,7 @@ mod test {
             Token::VariableName("yes".to_string()),
             Token::Boolean(false),
             Token::EndLine,
-        ]);
+        ]));
         let expected = vec![
             Line::DefineVariable("i".to_string(), Expression::I32(0), Type::I32),
             Line::DefineVariable("i".to_string(), Expression::I32(1), Type::I32),
@@ -630,7 +614,7 @@ mod test {
     }
     #[test]
     fn math_test() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::TypeI32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("4".to_string()),
@@ -641,7 +625,7 @@ mod test {
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("4".to_string()),
             Token::EndLine,
-        ]);
+        ]));
         let expected = vec![Line::DefineVariable(
             "e".to_string(),
             Expression::Complete(Complete {
@@ -663,7 +647,7 @@ mod test {
     }
     #[test]
     fn oop_test() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::TypeI32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("1".to_string()),
@@ -674,7 +658,7 @@ mod test {
             Token::MathOp(MathOp::Multiply),
             Token::ConstantNumber("4".to_string()),
             Token::EndLine,
-        ]);
+        ]));
         let expected = vec![Line::DefineVariable(
             "e".to_string(),
             Expression::Complete(Complete {
@@ -696,7 +680,7 @@ mod test {
     }
     #[test]
     fn simple_print_add() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::Print,
             Token::OpenParen,
             Token::ConstantNumber("1".to_string()),
@@ -704,7 +688,7 @@ mod test {
             Token::ConstantNumber("69".to_string()),
             Token::CloseParen,
             Token::EndLine,
-        ]);
+        ]));
         let expected = vec![Line::Print(Expression::Complete(Complete {
             operator: BinaryOperator::Add,
             left: Box::new(Expression::I32(1)),
@@ -714,7 +698,7 @@ mod test {
     }
     #[test]
     fn variable_adding() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::TypeI32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("1".to_string()),
@@ -730,7 +714,7 @@ mod test {
             Token::VariableName("ee".to_string()),
             Token::CloseParen,
             Token::EndLine,
-        ]);
+        ]));
         let expected = vec![
             Line::DefineVariable("e".to_string(), Expression::I32(1), Type::I32),
             Line::DefineVariable("ee".to_string(), Expression::I32(2), Type::I32),
@@ -744,7 +728,7 @@ mod test {
     }
     #[test]
     fn basic_if() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::TypeI32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("69".to_string()),
@@ -762,7 +746,7 @@ mod test {
             Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
-        ]);
+        ]));
         let expected = vec![
             Line::DefineVariable("e".to_string(), Expression::I32(69), Type::I32),
             Line::If(
@@ -779,7 +763,7 @@ mod test {
     }
     #[test]
     fn for_loop() {
-        let actual = lex(vec![
+        let actual = parse(VecDeque::from([
             Token::ForLoop,
             Token::OpenParen,
             Token::TypeI32,
@@ -801,7 +785,7 @@ mod test {
             Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
-        ]);
+        ]));
         let expected = vec![
             Line::ForLoop(
                 Box::new(Line::DefineVariable(
@@ -830,8 +814,8 @@ mod test {
         assert_eq!(actual, expected);
     }
     #[test]
-    fn double_if(){
-        let actual = lex(vec![
+    fn double_if() {
+        let actual = parse(VecDeque::from([
             Token::If,
             Token::OpenParen,
             Token::Boolean(true),
@@ -849,13 +833,71 @@ mod test {
             Token::EndLine,
             Token::EndBlock,
             Token::EndBlock,
-        ]);
+        ]));
         let expected = vec![
-            Line::If(Expression::Bool(true), vec![
-                Line::If(Expression::Bool(true), vec![
-                    Line::Print(Expression::String("a".to_string()))
-                ])
-            ])
+            Line::If(
+                Expression::Bool(true),
+                vec![
+                    Line::If(
+                        Expression::Bool(false),
+                        vec![Line::Print(Expression::String("a".to_string()))],
+                    ),
+                    Line::EndBlock,
+                ],
+            ),
+            Line::EndBlock,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn more_if() {
+        let actual = parse(VecDeque::from([
+            Token::If,
+            Token::OpenParen,
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::If,
+            Token::OpenParen,
+            Token::Boolean(false),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::Print,
+            Token::OpenParen,
+            Token::String("a".to_string()),
+            Token::CloseParen,
+            Token::EndLine,
+            Token::EndBlock,
+            Token::If,
+            Token::OpenParen,
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::Print,
+            Token::OpenParen,
+            Token::String("n".to_string()),
+            Token::CloseParen,
+            Token::EndLine,
+            Token::EndBlock,
+            Token::EndBlock,
+        ]));
+        let expected = vec![
+            Line::If(
+                Expression::Bool(true),
+                vec![
+                    Line::If(
+                        Expression::Bool(false),
+                        vec![Line::Print(Expression::String("a".to_string()))],
+                    ),
+                    Line::EndBlock,
+                    Line::If(
+                        Expression::Bool(true),
+                        vec![Line::Print(Expression::String("n".to_string()))],
+                    ),
+                    Line::EndBlock,
+                ],
+            ),
+            Line::EndBlock,
         ];
         assert_eq!(actual, expected);
     }

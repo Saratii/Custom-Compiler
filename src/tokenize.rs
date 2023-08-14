@@ -1,3 +1,5 @@
+use std::{collections::VecDeque, fmt::Display};
+
 use regex::Regex;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -21,6 +23,32 @@ pub enum Token {
     ForLoop,
     Comma,
 }
+
+impl Display for Token{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self{
+            Token::Print => write!(f, "Print"),
+            Token::String(_) => write!(f, "String"),
+            Token::OpenParen => write!(f, "OpenParen"),
+            Token::CloseParen => write!(f, "CloseParen"),
+            Token::StartBlock => write!(f, "StartBlock"),
+            Token::EndBlock => write!(f, "EndBlock"),
+            Token::TypeI32 => write!(f, "TypeI32"),
+            Token::TypeString => write!(f, "TypeString"),
+            Token::TypeBool => write!(f, "TypeBool"),
+            Token::VariableName(_) => write!(f, "VariableName"),
+            Token::ConstantNumber(_) => write!(f, "ConstantNumber"),
+            Token::Boolean(_) => write!(f, "Boolean"),
+            Token::WhileLoop => write!(f, "WhileLoop"),
+            Token::MathOp(_) => write!(f, "MathOp"),
+            Token::EndLine => write!(f, "EndLine"),
+            Token::If => write!(f, "If"),
+            Token::ForLoop => write!(f, "ForLoop"),
+            Token::Comma => write!(f, "Comma"),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum MathOp {
     Add,
@@ -34,17 +62,17 @@ pub enum MathOp {
     GreaterThanOrEqualTo,
 }
 
-pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
+pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     let remove_tabs = Regex::new(r"\n\s+").unwrap();
     let mut inputs = remove_tabs.replace_all(raw, "\n").to_string();
     inputs = inputs.replace("\r", "").replace("\n", "");
     let number_regex = Regex::new(r"^(\d+)").unwrap();
     let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
 
-    let mut tokens = vec![];
+    let mut tokens = VecDeque::new();
     while inputs.len() > 0 {
         if inputs.starts_with("print") {
-            tokens.push(Token::Print);
+            tokens.push_back(Token::Print);
             inputs = inputs[5..].to_string();
         } else if inputs.starts_with("\"") {
             inputs = inputs[1..].to_string();
@@ -53,20 +81,20 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
                 string = string + &inputs.chars().nth(0).unwrap().to_string();
                 inputs = inputs[1..].to_string();
             }
-            tokens.push(Token::String(string));
+            tokens.push_back(Token::String(string));
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with(")") {
-            tokens.push(Token::CloseParen);
+            tokens.push_back(Token::CloseParen);
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with("}") {
-            tokens.push(Token::EndBlock);
+            tokens.push_back(Token::EndBlock);
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with("String ") {
             inputs = inputs[7..].to_string();
-            tokens.push(Token::TypeString);
+            tokens.push_back(Token::TypeString);
         } else if inputs.starts_with("i32 ") {
             inputs = inputs[4..].to_string();
-            tokens.push(Token::TypeI32);
+            tokens.push_back(Token::TypeI32);
         } else if number_regex.is_match(&inputs) {
             let constant_number = number_regex
                 .captures(&inputs)
@@ -74,81 +102,81 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
                 .get(0)
                 .unwrap()
                 .as_str();
-            tokens.push(Token::ConstantNumber(constant_number.to_string()));
+            tokens.push_back(Token::ConstantNumber(constant_number.to_string()));
             inputs = inputs[constant_number.len()..].to_string();
         } else if inputs.starts_with(" = ") {
             inputs = inputs[3..].to_string();
         } else if inputs.starts_with("++") {
             inputs = inputs[2..].to_string();
-            tokens.push(Token::MathOp(MathOp::Add));
-            tokens.push(Token::ConstantNumber("1".to_string()));
+            tokens.push_back(Token::MathOp(MathOp::Add));
+            tokens.push_back(Token::ConstantNumber("1".to_string()));
         } else if inputs.starts_with("--") {
             inputs = inputs[2..].to_string();
-            tokens.push(Token::MathOp(MathOp::Subtract));
-            tokens.push(Token::ConstantNumber("1".to_string()));
+            tokens.push_back(Token::MathOp(MathOp::Subtract));
+            tokens.push_back(Token::ConstantNumber("1".to_string()));
         } else if inputs.starts_with("Bool ") {
-            tokens.push(Token::TypeBool);
+            tokens.push_back(Token::TypeBool);
             inputs = inputs[5..].to_string();
         } else if inputs.starts_with("True") {
-            tokens.push(Token::Boolean(true));
+            tokens.push_back(Token::Boolean(true));
             inputs = inputs[4..].to_string();
         } else if inputs.starts_with("true") {
             panic!("you typed: true, did you mean True?");
         } else if inputs.starts_with("False") {
-            tokens.push(Token::Boolean(false));
+            tokens.push_back(Token::Boolean(false));
             inputs = inputs[5..].to_string();
         } else if inputs.starts_with("false") {
             panic!("you typed: false, did you mean False?");
         } else if inputs.starts_with("while ") {
-            tokens.push(Token::WhileLoop);
+            tokens.push_back(Token::WhileLoop);
             inputs = inputs[6..].to_string();
         } else if inputs.starts_with("while") {
-            tokens.push(Token::WhileLoop);
+            tokens.push_back(Token::WhileLoop);
             inputs = inputs[5..].to_string();
         } else if inputs.starts_with("{") {
-            tokens.push(Token::StartBlock);
+            tokens.push_back(Token::StartBlock);
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with(" + ") {
-            tokens.push(Token::MathOp(MathOp::Add));
+            tokens.push_back(Token::MathOp(MathOp::Add));
             inputs = inputs[3..].to_string();
         } else if inputs.starts_with(" - ") {
-            tokens.push(Token::MathOp(MathOp::Subtract));
+            tokens.push_back(Token::MathOp(MathOp::Subtract));
             inputs = inputs[3..].to_string();
         } else if inputs.starts_with(" * ") {
-            tokens.push(Token::MathOp(MathOp::Multiply));
+            tokens.push_back(Token::MathOp(MathOp::Multiply));
             inputs = inputs[3..].to_string();
         } else if inputs.starts_with(" / ") {
-            tokens.push(Token::MathOp(MathOp::Divide));
+            tokens.push_back(Token::MathOp(MathOp::Divide));
             inputs = inputs[3..].to_string();
         } else if inputs.starts_with(";") {
-            tokens.push(Token::EndLine);
+            tokens.push_back(Token::EndLine);
             inputs = inputs[1..].to_string();
         } else if inputs.starts_with("if") {
-            tokens.push(Token::If);
+            tokens.push_back(Token::If);
             inputs = inputs[2..].to_string();
         } else if inputs.starts_with(" == ") {
-            tokens.push(Token::MathOp(MathOp::Equals));
+            tokens.push_back(Token::MathOp(MathOp::Equals));
             inputs = inputs[4..].to_string()
         } else if inputs.starts_with(" < ") {
-            tokens.push(Token::MathOp(MathOp::LessThan));
+            tokens.push_back(Token::MathOp(MathOp::LessThan));
             inputs = inputs[3..].to_string()
         } else if inputs.starts_with(" <= ") {
-            tokens.push(Token::MathOp(MathOp::LessThanOrEqualTo));
+            tokens.push_back(Token::MathOp(MathOp::LessThanOrEqualTo));
             inputs = inputs[4..].to_string()
         } else if inputs.starts_with(" > ") {
-            tokens.push(Token::MathOp(MathOp::GreaterThan));
+            tokens.push_back(Token::MathOp(MathOp::GreaterThan));
             inputs = inputs[3..].to_string()
         } else if inputs.starts_with(" >= ") {
-            tokens.push(Token::MathOp(MathOp::GreaterThanOrEqualTo));
+            tokens.push_back(Token::MathOp(MathOp::GreaterThanOrEqualTo));
             inputs = inputs[4..].to_string()
         } else if inputs.starts_with(", ") {
-            tokens.push(Token::Comma);
+            tokens.push_back(Token::Comma);
             inputs = inputs[2..].to_string()
         } else if inputs.starts_with("for") {
-            tokens.push(Token::ForLoop);
+            tokens.push_back(Token::ForLoop);
             inputs = inputs[3..].to_string()
         } else if inputs.starts_with("(") {
-            tokens.push(Token::OpenParen);
+            tokens.push_back(Token::OpenParen);
             inputs = inputs[1..].to_string()
         } else if name_regex.is_match(&inputs) {
             let variable_name = name_regex
@@ -157,7 +185,7 @@ pub fn parse_to_tokens(raw: &str) -> Vec<Token> {
                 .get(0)
                 .unwrap()
                 .as_str();
-            tokens.push(Token::VariableName(variable_name.to_string()));
+            tokens.push_back(Token::VariableName(variable_name.to_string()));
             inputs = inputs[variable_name.len()..].to_string();
         } else {
             if inputs.len() != 0 {
