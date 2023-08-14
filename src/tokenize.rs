@@ -24,9 +24,9 @@ pub enum Token {
     Comma,
 }
 
-impl Display for Token{
+impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self{
+        match self {
             Token::Print => write!(f, "Print"),
             Token::String(_) => write!(f, "String"),
             Token::OpenParen => write!(f, "OpenParen"),
@@ -62,6 +62,48 @@ pub enum MathOp {
     GreaterThanOrEqualTo,
 }
 
+static KEYWORDS: &'static [(&str, &[Token])] = &[
+    ("print", &[Token::Print]),
+    ("(", &[Token::OpenParen]),
+    (")", &[Token::CloseParen]),
+    ("}", &[Token::EndBlock]),
+    ("{", &[Token::StartBlock]),
+    ("String ", &[Token::TypeString]),
+    ("i32 ", &[Token::TypeI32]),
+    ("Bool ", &[Token::TypeBool]),
+    (" + ", &[Token::MathOp(MathOp::Add)]),
+    (" - ", &[Token::MathOp(MathOp::Subtract)]),
+    (" * ", &[Token::MathOp(MathOp::Multiply)]),
+    (" / ", &[Token::MathOp(MathOp::Divide)]),
+    (" > ", &[Token::MathOp(MathOp::GreaterThan)]),
+    (" < ", &[Token::MathOp(MathOp::LessThan)]),
+    (" >= ", &[Token::MathOp(MathOp::GreaterThanOrEqualTo)]),
+    (" <= ", &[Token::MathOp(MathOp::LessThanOrEqualTo)]),
+    (", ", &[Token::Comma]),
+    (" == ", &[Token::MathOp(MathOp::Equals)]),
+    ("True", &[Token::Boolean(true)]),
+    ("False", &[Token::Boolean(false)]),
+    (";", &[Token::EndLine]),
+    ("while ", &[Token::WhileLoop]),
+    ("for", &[Token::ForLoop]),
+    ("if", &[Token::If]),
+    (" = ", &[]),
+    // (
+    //     "++",
+    //     &[
+    //         Token::MathOp(MathOp::Add),
+    //         Token::ConstantNumber(&'static "1"),
+    //     ],
+    // ),
+    // (
+    //     "--",
+    //     &[
+    //         Token::MathOp(MathOp::Subtract),
+    //         Token::ConstantNumber("1".to_string()),
+    //     ],
+    // ),
+];
+
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     let remove_tabs = Regex::new(r"\n\s+").unwrap();
     let mut inputs = remove_tabs.replace_all(raw, "\n").to_string();
@@ -70,11 +112,18 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
 
     let mut tokens = VecDeque::new();
-    while inputs.len() > 0 {
-        if inputs.starts_with("print") {
-            tokens.push_back(Token::Print);
-            inputs = inputs[5..].to_string();
-        } else if inputs.starts_with("\"") {
+    'outer: while inputs.len() > 0 {
+        println!("{:?}", inputs);
+        for (keyword, token_macro) in KEYWORDS {
+            if inputs.starts_with(keyword) {
+                for i in 0..token_macro.len() {
+                    tokens.push_back(token_macro[i].clone());
+                }
+                inputs = inputs[keyword.len()..].to_string();
+                continue 'outer;
+            }
+        }
+        if inputs.starts_with("\"") {
             inputs = inputs[1..].to_string();
             let mut string = "".to_string();
             while !inputs.starts_with("\"") {
@@ -83,18 +132,6 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
             }
             tokens.push_back(Token::String(string));
             inputs = inputs[1..].to_string();
-        } else if inputs.starts_with(")") {
-            tokens.push_back(Token::CloseParen);
-            inputs = inputs[1..].to_string();
-        } else if inputs.starts_with("}") {
-            tokens.push_back(Token::EndBlock);
-            inputs = inputs[1..].to_string();
-        } else if inputs.starts_with("String ") {
-            inputs = inputs[7..].to_string();
-            tokens.push_back(Token::TypeString);
-        } else if inputs.starts_with("i32 ") {
-            inputs = inputs[4..].to_string();
-            tokens.push_back(Token::TypeI32);
         } else if number_regex.is_match(&inputs) {
             let constant_number = number_regex
                 .captures(&inputs)
@@ -104,8 +141,6 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
                 .as_str();
             tokens.push_back(Token::ConstantNumber(constant_number.to_string()));
             inputs = inputs[constant_number.len()..].to_string();
-        } else if inputs.starts_with(" = ") {
-            inputs = inputs[3..].to_string();
         } else if inputs.starts_with("++") {
             inputs = inputs[2..].to_string();
             tokens.push_back(Token::MathOp(MathOp::Add));
@@ -114,70 +149,10 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
             inputs = inputs[2..].to_string();
             tokens.push_back(Token::MathOp(MathOp::Subtract));
             tokens.push_back(Token::ConstantNumber("1".to_string()));
-        } else if inputs.starts_with("Bool ") {
-            tokens.push_back(Token::TypeBool);
-            inputs = inputs[5..].to_string();
-        } else if inputs.starts_with("True") {
-            tokens.push_back(Token::Boolean(true));
-            inputs = inputs[4..].to_string();
         } else if inputs.starts_with("true") {
             panic!("you typed: true, did you mean True?");
-        } else if inputs.starts_with("False") {
-            tokens.push_back(Token::Boolean(false));
-            inputs = inputs[5..].to_string();
         } else if inputs.starts_with("false") {
             panic!("you typed: false, did you mean False?");
-        } else if inputs.starts_with("while ") {
-            tokens.push_back(Token::WhileLoop);
-            inputs = inputs[6..].to_string();
-        } else if inputs.starts_with("while") {
-            tokens.push_back(Token::WhileLoop);
-            inputs = inputs[5..].to_string();
-        } else if inputs.starts_with("{") {
-            tokens.push_back(Token::StartBlock);
-            inputs = inputs[1..].to_string();
-        } else if inputs.starts_with(" + ") {
-            tokens.push_back(Token::MathOp(MathOp::Add));
-            inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(" - ") {
-            tokens.push_back(Token::MathOp(MathOp::Subtract));
-            inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(" * ") {
-            tokens.push_back(Token::MathOp(MathOp::Multiply));
-            inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(" / ") {
-            tokens.push_back(Token::MathOp(MathOp::Divide));
-            inputs = inputs[3..].to_string();
-        } else if inputs.starts_with(";") {
-            tokens.push_back(Token::EndLine);
-            inputs = inputs[1..].to_string();
-        } else if inputs.starts_with("if") {
-            tokens.push_back(Token::If);
-            inputs = inputs[2..].to_string();
-        } else if inputs.starts_with(" == ") {
-            tokens.push_back(Token::MathOp(MathOp::Equals));
-            inputs = inputs[4..].to_string()
-        } else if inputs.starts_with(" < ") {
-            tokens.push_back(Token::MathOp(MathOp::LessThan));
-            inputs = inputs[3..].to_string()
-        } else if inputs.starts_with(" <= ") {
-            tokens.push_back(Token::MathOp(MathOp::LessThanOrEqualTo));
-            inputs = inputs[4..].to_string()
-        } else if inputs.starts_with(" > ") {
-            tokens.push_back(Token::MathOp(MathOp::GreaterThan));
-            inputs = inputs[3..].to_string()
-        } else if inputs.starts_with(" >= ") {
-            tokens.push_back(Token::MathOp(MathOp::GreaterThanOrEqualTo));
-            inputs = inputs[4..].to_string()
-        } else if inputs.starts_with(", ") {
-            tokens.push_back(Token::Comma);
-            inputs = inputs[2..].to_string()
-        } else if inputs.starts_with("for") {
-            tokens.push_back(Token::ForLoop);
-            inputs = inputs[3..].to_string()
-        } else if inputs.starts_with("(") {
-            tokens.push_back(Token::OpenParen);
-            inputs = inputs[1..].to_string()
         } else if name_regex.is_match(&inputs) {
             let variable_name = name_regex
                 .captures(&inputs)
@@ -504,7 +479,7 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn double_if(){
+    fn double_if() {
         let actual = parse_to_tokens("if(True){if(False){print(\"a\");}}");
         let expected = vec![
             Token::If,
