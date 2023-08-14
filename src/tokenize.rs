@@ -95,6 +95,7 @@ static KEYWORDS: &'static [(&str, Token)] = &[
     ("False", Token::Boolean(false)),
     (";", Token::EndLine),
     ("while ", Token::WhileLoop),
+    ("while", Token::WhileLoop),
     ("for", Token::ForLoop),
     ("if", Token::If),
     (" = ", Token::Ignore),

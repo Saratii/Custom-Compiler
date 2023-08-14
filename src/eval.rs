@@ -44,16 +44,24 @@ pub fn evaluate_line(line: &Line, variables: &mut HashMap<String, (Expression, T
                 (value.clone().evaluate(variables), variable_type.clone()),
             );
         }
-        Line::WhileLoop(condition, lines) => match condition {
-            Expression::Bool(value) => {
-                while *value {
-                    for line in lines {
-                        evaluate_line(line, variables);
+        Line::WhileLoop(condition, lines) => {
+            let mut literal_condition = condition.evaluate(variables);
+            match literal_condition {
+                Expression::Bool(mut value) => {
+                    while value {
+                        for line in lines {
+                            evaluate_line(line, variables);
+                        }
+                        literal_condition = condition.evaluate(variables);
+                        match literal_condition {
+                            Expression::Bool(val) => value = val,
+                            _ => {}
+                        }
                     }
                 }
+                _ => {}
             }
-            _ => {}
-        },
+        }
         Line::If(condition, lines) => {
             let final_condition = condition.evaluate(variables);
             match final_condition {
