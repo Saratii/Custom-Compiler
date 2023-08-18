@@ -104,8 +104,10 @@ static KEYWORDS: &'static [(&str, Token)] = &[
 ];
 
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
+    let remove_comments_regex = Regex::new(r"//(.*?)\n\r?").unwrap();
     let remove_tabs = Regex::new(r"\n\s+").unwrap();
-    let mut inputs = remove_tabs.replace_all(raw, "\n").to_string();
+    let removed_comments = remove_comments_regex.replace_all(raw, "").to_string();
+    let mut inputs = remove_tabs.replace_all(&removed_comments.as_str(), "\n").to_string();
     inputs = inputs.replace("\r", "").replace("\n", "");
     let number_regex = Regex::new(r"^(\d+)").unwrap();
     let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
@@ -489,5 +491,20 @@ while (True){
             Token::EndBlock,
         ];
         assert_eq!(actual, expected);
+    }
+    #[test]
+    fn basic_comment(){
+        let actual = parse_to_tokens("i32 i = 10;\n//i32 e = 9;\ni32 g = 8;");
+        let expected = vec![
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("10".to_string()),
+            Token::EndLine,
+            Token::TypeI32,
+            Token::VariableName("g".to_string()),
+            Token::ConstantNumber("8".to_string()),
+            Token::EndLine
+            ];
+            assert_eq!(actual, expected);
     }
 }
