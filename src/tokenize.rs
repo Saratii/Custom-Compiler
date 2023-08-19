@@ -104,7 +104,7 @@ static KEYWORDS: &'static [(&str, Token)] = &[
 ];
 
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
-    let remove_comments_regex = Regex::new(r"//(.*?)\n\r?").unwrap();
+    let remove_comments_regex = Regex::new(r"(?:\/\/(.+)|\/\*((?:.|[\r\n])+?)\*\/)").unwrap();
     let remove_tabs = Regex::new(r"\n\s+").unwrap();
     let removed_comments = remove_comments_regex.replace_all(raw, "").to_string();
     let mut inputs = remove_tabs.replace_all(&removed_comments.as_str(), "\n").to_string();
@@ -506,5 +506,20 @@ while (True){
             Token::EndLine
             ];
             assert_eq!(actual, expected);
+    }
+    #[test]
+    fn multi_line_comment(){
+        let actual = parse_to_tokens("i32 i = 10;\n/*unga\nbunga\nwunga\n*/i32 e = 0;");
+        let expected = vec![
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("10".to_string()),
+            Token::EndLine,
+            Token::TypeI32,
+            Token::VariableName("e".to_string()),
+            Token::ConstantNumber("0".to_string()),
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
     }
 }

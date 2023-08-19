@@ -1,4 +1,4 @@
-use crate::lex::{BinaryOperator, Complete, Expression, Line, Type};
+use crate::parse::{BinaryOperator, Complete, Expression, Line, Type};
 use std::collections::HashMap;
 
 pub fn evaluate(lines: Vec<Line>) {

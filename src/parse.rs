@@ -521,7 +521,7 @@ fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
 mod test {
     use super::{parse, Line, Type};
     use crate::{
-        lex::{BinaryOperator, Complete, Expression},
+        parse::{BinaryOperator, Complete, Expression},
         tokenize::{MathOp, Token},
     };
     use std::collections::VecDeque;
