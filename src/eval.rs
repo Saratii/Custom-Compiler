@@ -62,17 +62,34 @@ pub fn evaluate_line(line: &Line, variables: &mut HashMap<String, (Expression, T
                 _ => {}
             }
         }
-        Line::If(condition, lines) => {
-            let final_condition = condition.evaluate(variables);
-            match final_condition {
-                Expression::Bool(value) => {
-                    if value {
+        Line::If(condition, lines, else_elif) => {
+            match condition.evaluate(variables) {
+                Expression::Bool(literal) => {
+                    if literal {
                         for line in lines {
                             evaluate_line(line, variables);
                         }
                     }
+                    'found_true_condition: for line in else_elif{
+                        match line{
+                            Line::If(condition, sub_lines, _) => {
+                                match condition.evaluate(variables){
+                                    Expression::Bool(literal) => {
+                                        if literal{
+                                            for l in sub_lines{
+                                                evaluate_line(l, variables)
+                                            }
+                                            break 'found_true_condition
+                                        }
+                                    }
+                                    _ => panic!("compiler made an oopsie woopsie"),
+                                }
+                            }
+                            _ => panic!("compiler made an oopsie woopsie"),
+                        }
+                    }
                 }
-                _ => println!("compiler done fucked up"),
+                _ => panic!("compiler made an oopsie woopsie"),
             }
         }
         Line::ForLoop(define_variable, condition, increment, lines) => {

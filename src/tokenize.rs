@@ -25,6 +25,8 @@ pub enum Token {
     Ignore,
     IncrementUp,
     IncrementDown,
+    Else,
+    Elif,
 }
 
 impl Display for Token {
@@ -51,6 +53,8 @@ impl Display for Token {
             Token::Ignore => write!(f, "Ignore"),
             Token::IncrementUp => write!(f, "IncrementUp"),
             Token::IncrementDown => write!(f, "IncrementDown"),
+            Token::Else => write!(f, "Else"),
+            Token::Elif => write!(f, "Elif"),
         }
     }
 }
@@ -101,10 +105,12 @@ static KEYWORDS: &'static [(&str, Token)] = &[
     (" = ", Token::Ignore),
     ("++", Token::IncrementUp),
     ("--", Token::IncrementDown),
+    ("else", Token::Else),
+    ("elif", Token::Elif),
 ];
 
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
-    let remove_comments_regex = Regex::new(r"(?:\/\/(.+)|\/\*((?:.|[\r\n])+?)\*\/)").unwrap();
+    let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
     let remove_tabs = Regex::new(r"\n\s+").unwrap();
     let removed_comments = remove_comments_regex.replace_all(raw, "").to_string();
     let mut inputs = remove_tabs.replace_all(&removed_comments.as_str(), "\n").to_string();
@@ -519,6 +525,37 @@ while (True){
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("0".to_string()),
             Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn else_elif_test(){
+        let actual = parse_to_tokens("if(i == 6){}elif(i == 7){}else{print(\"e\");}");
+        let expected = vec![
+            Token::If,
+            Token::OpenParen,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::Equals),
+            Token::ConstantNumber("6".to_string()),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::EndBlock,
+            Token::Elif,
+            Token::OpenParen,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::Equals),
+            Token::ConstantNumber("7".to_string()),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::EndBlock,
+            Token::Else,
+            Token::StartBlock,
+            Token::Print,
+            Token::OpenParen,
+            Token::String("e".to_string()),
+            Token::CloseParen,
+            Token::EndLine,
+            Token::EndBlock,
         ];
         assert_eq!(actual, expected);
     }

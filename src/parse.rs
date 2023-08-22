@@ -7,7 +7,7 @@ pub enum Line {
     DefineVariable(String, Expression, Type),
     WhileLoop(Expression, Vec<Line>),
     EndBlock,
-    If(Expression, Vec<Line>),
+    If(Expression, Vec<Line>, VecDeque<Line>),
     ForLoop(Box<Line>, Expression, Box<Line>, Vec<Line>),
 }
 #[derive(PartialEq, Debug, Clone)]
@@ -182,39 +182,31 @@ fn process_token(tokens: &mut VecDeque<Token>, lines: &mut Vec<Line>, block_coun
             lines.push(Line::Print(literal));
         }
         Token::If => {
-            tokens.pop_front(); //remove paren
-            let mut condition_tokens = Vec::new();
-            loop {
-                let next_token = tokens.pop_front().unwrap();
-                match next_token {
-                    Token::CloseParen => break,
-                    _ => condition_tokens.push(next_token),
+            let (condition, interior_lines) = process_if_block(tokens, block_count);
+            let mut else_elif = VecDeque::new();
+            if tokens.len() > 0{
+                'outer: loop{
+                    let next_token = tokens.pop_front().unwrap();
+                    match next_token{
+                        Token::Elif =>{
+                            let (elif_condition, elif_interior_lines) = process_if_block(tokens, block_count);
+                            else_elif.push_back(Line::If(elif_condition, elif_interior_lines, VecDeque::new()));
+                        },
+                        Token::Else =>{
+                            let (_, else_interior_lines) = process_if_block(tokens, block_count);
+                            else_elif.push_back(Line::If(Expression::Bool(true), else_interior_lines, VecDeque::new()));
+                            break 'outer;
+                        }
+                        _ => {
+                            tokens.push_front(next_token);
+                            break 'outer;
+                        }
+                    }
                 }
             }
-            tokens.pop_front(); //remove start block
-            *block_count += 1;
-            let mut block_tokens = VecDeque::new();
-            loop {
-                let next_token = tokens.pop_front().unwrap();
-                match next_token {
-                    Token::EndBlock if *block_count == 1 => {
-                        let (condition, _) = lex_expression(&condition_tokens);
-                        let block_lines = parse(block_tokens);
-                        lines.push(Line::If(condition, block_lines));
-                        lines.push(Line::EndBlock);
-                        break;
-                    }
-                    Token::EndBlock => {
-                        block_tokens.push_back(next_token);
-                        *block_count -= 1;
-                    }
-                    Token::StartBlock => {
-                        *block_count += 1;
-                        block_tokens.push_back(next_token);
-                    }
-                    _ => block_tokens.push_back(next_token),
-                }
-            }
+            let finished_line = Line::If(condition, interior_lines, else_elif);
+            lines.push(finished_line);
+            lines.push(Line::EndBlock);
         }
         Token::ForLoop => {
             tokens.pop_front(); //remove start paren
@@ -402,7 +394,46 @@ fn process_token(tokens: &mut VecDeque<Token>, lines: &mut Vec<Line>, block_coun
         _ => {}
     }
 }
+fn process_if_block(tokens: &mut VecDeque<Token>, block_count: &mut usize) -> (Expression, Vec<Line>){
+    let mut condition_tokens = vec![Token::Boolean(true)];
+    let pre_token = tokens.pop_front().unwrap(); //remove paren
+    match pre_token{
+        Token::OpenParen => {
+            condition_tokens = Vec::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::CloseParen => break,
+                    _ => condition_tokens.push(next_token),
+                }
+            }
+        },
+        _ => tokens.push_front(pre_token)
+    }
+    tokens.pop_front(); //remove start block
+    *block_count += 1;
+    let mut block_tokens = VecDeque::new();
+    loop {
+        let next_token = tokens.pop_front().unwrap();
+        match next_token {
+            Token::EndBlock if *block_count == 1 => {
+                let (condition, _) = lex_expression(&condition_tokens);
+                let block_lines = parse(block_tokens);
+                return (condition, block_lines)
 
+            }
+            Token::EndBlock => {
+                block_tokens.push_back(next_token);
+                *block_count -= 1;
+            }
+            Token::StartBlock => {
+                *block_count += 1;
+                block_tokens.push_back(next_token);
+            }
+            _ => block_tokens.push_back(next_token),
+        }
+    }
+}
 fn lex_expression(mut tokens: &[Token]) -> (Expression, Type) {
     let mut stack = Vec::new();
     for token in tokens {
@@ -805,6 +836,7 @@ mod test {
                     right: Box::new(Expression::I32(69)),
                 }),
                 vec![Line::Print(Expression::Variable("e".to_string()))],
+                VecDeque::new(),
             ),
             Line::EndBlock,
         ];
@@ -889,9 +921,11 @@ mod test {
                     Line::If(
                         Expression::Bool(false),
                         vec![Line::Print(Expression::String("a".to_string()))],
+                        VecDeque::new(),
                     ),
                     Line::EndBlock,
                 ],
+                VecDeque::new(),
             ),
             Line::EndBlock,
         ];
@@ -936,14 +970,17 @@ mod test {
                     Line::If(
                         Expression::Bool(false),
                         vec![Line::Print(Expression::String("a".to_string()))],
+                        VecDeque::new(),
                     ),
                     Line::EndBlock,
                     Line::If(
                         Expression::Bool(true),
                         vec![Line::Print(Expression::String("n".to_string()))],
+                        VecDeque::new(),
                     ),
                     Line::EndBlock,
                 ],
+                VecDeque::new(),
             ),
             Line::EndBlock,
         ];
@@ -973,5 +1010,89 @@ mod test {
             ),
         ];
         assert_eq!(actual, expected);
+    }
+    #[test]
+    fn if_elif_elif_else(){
+        let actual = parse(VecDeque::from([
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("69".to_string()),
+            Token::EndLine,
+            Token::If,
+            Token::OpenParen,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::Equals),
+            Token::ConstantNumber("6".to_string()),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::EndBlock,
+            Token::Elif,
+            Token::OpenParen,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::Equals),
+            Token::ConstantNumber("7".to_string()),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::EndBlock,
+            Token::Elif,
+            Token::OpenParen,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::Equals),
+            Token::ConstantNumber("69".to_string()),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::EndBlock,
+            Token::Else,
+            Token::StartBlock,
+            Token::EndBlock,
+        ]));
+        let expected = vec![
+            Line::If(
+                Expression::Complete(Complete{
+                    operator: BinaryOperator::Equals,
+                    left: Box::new(Expression::Variable("i".to_string())),
+                    right: Box::new(Expression::I32(6)),
+                }),
+                Vec::new(),
+                VecDeque::from([
+                    Line::If(
+                        Expression::Complete(Complete{
+                            operator: BinaryOperator::Equals,
+                            left: Box::new(Expression::Variable("e".to_string())),
+                            right: Box::new(Expression::I32(7))
+                        }),
+                    Vec::new(),
+                    VecDeque::from([
+                        Line::If(
+                            Expression::Complete(Complete{
+                                operator: BinaryOperator::Equals,
+                                left: Box::new(Expression::Variable("e".to_string())),
+                                right: Box::new(Expression::I32(7))
+                            }),
+                             Vec::new(),
+                             VecDeque::from([
+                                Line::If(
+                                    Expression::Complete(Complete{
+                                        operator: BinaryOperator::Equals,
+                                        left: Box::new(Expression::Variable("e".to_string())),
+                                        right: Box::new(Expression::I32(7))
+                                    }),
+                                    Vec::new(),
+                                    VecDeque::from([
+                                        Line::If(
+                                            Expression::Bool(true),
+                                            Vec::new(),
+                                            VecDeque::from([
+                                                
+                                            ])
+                                        )
+                                    ])
+                                )
+                            ])
+                        )
+                    ])
+                )])
+            )];
+            assert_eq!(actual, expected);
     }
 }
