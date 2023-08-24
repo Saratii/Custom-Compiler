@@ -1,16 +1,16 @@
-use crate::parse::{BinaryOperator, Complete, Expression, Line, Type};
-use std::collections::HashMap;
+use crate::parse::{BinaryOperator, Complete, Expression, Statement, Type};
+use std::collections::{HashMap, VecDeque};
 
-pub fn evaluate(lines: Vec<Line>) {
+pub fn evaluate(lines: VecDeque<Statement>) {
     let mut variables = HashMap::new();
     for i in 0..lines.len() {
         evaluate_line(&lines[i as usize], &mut variables);
     }
 }
 
-pub fn evaluate_line(line: &Line, variables: &mut HashMap<String, (Expression, Type)>) {
-    match line {
-        Line::Print(expression) => match expression {
+pub fn evaluate_line(statement: &Statement, variables: &mut HashMap<String, (Expression, Type)>) {
+    match statement {
+        Statement::Print(expression) => match expression {
             Expression::String(s) => {
                 println!("{}", s)
             }
@@ -38,19 +38,19 @@ pub fn evaluate_line(line: &Line, variables: &mut HashMap<String, (Expression, T
             }
             _ => {}
         },
-        Line::DefineVariable(name, value, variable_type) => {
+        Statement::DefineVariable(name, value, variable_type) => {
             variables.insert(
                 name.clone(),
                 (value.clone().evaluate(variables), variable_type.clone()),
             );
         }
-        Line::WhileLoop(condition, lines) => {
+        Statement::WhileLoop(condition, lines) => {
             let mut literal_condition = condition.evaluate(variables);
             match literal_condition {
                 Expression::Bool(mut value) => {
                     while value {
-                        for line in lines {
-                            evaluate_line(line, variables);
+                        for statement in lines {
+                            evaluate_line(statement, variables);
                         }
                         literal_condition = condition.evaluate(variables);
                         match literal_condition {
@@ -62,44 +62,48 @@ pub fn evaluate_line(line: &Line, variables: &mut HashMap<String, (Expression, T
                 _ => {}
             }
         }
-        Line::If(condition, lines, else_elif) => {
+        Statement::If(condition, statements, elifs, else_) => {
             match condition.evaluate(variables) {
                 Expression::Bool(literal) => {
                     if literal {
-                        for line in lines {
-                            evaluate_line(line, variables);
+                        for statement in statements {
+                            evaluate_line(statement, variables);
                         }
-                    }
-                    'found_true_condition: for line in else_elif{
-                        match line{
-                            Line::If(condition, sub_lines, _) => {
-                                match condition.evaluate(variables){
-                                    Expression::Bool(literal) => {
-                                        if literal{
-                                            for l in sub_lines{
-                                                evaluate_line(l, variables)
+                    } else {
+                        'break_when_found: for elif in elifs{
+                            match elif{
+                                Statement::Elif(elif_condition, elif_block) => {
+                                    match elif_condition.evaluate(&variables){
+                                        Expression::Bool(elif_literal) => {
+                                            if elif_literal{
+                                                for statement in elif_block{
+                                                    evaluate_line(statement, variables);
+                                                }
+                                                break 'break_when_found;
                                             }
-                                            break 'found_true_condition
                                         }
+                                        _ => {}
                                     }
-                                    _ => panic!("compiler made an oopsie woopsie"),
                                 }
+                                _ => {}
                             }
-                            _ => panic!("compiler made an oopsie woopsie"),
+                        }
+                        for statement in else_.clone().unwrap(){
+                            evaluate_line(&statement, variables);
                         }
                     }
                 }
                 _ => panic!("compiler made an oopsie woopsie"),
             }
         }
-        Line::ForLoop(define_variable, condition, increment, lines) => {
+        Statement::ForLoop(define_variable, condition, increment, lines) => {
             evaluate_line(define_variable, variables);
             let mut evaluated_condition = condition.evaluate(variables);
             match evaluated_condition {
                 Expression::Bool(mut value) => {
                     while value {
-                        for line in lines {
-                            evaluate_line(line, variables);
+                        for statement in lines {
+                            evaluate_line(statement, variables);
                         }
                         evaluate_line(&**&increment, variables);
                         evaluated_condition = condition.evaluate(variables);
@@ -152,6 +156,8 @@ impl Expression {
             Expression::I32(_) => self.clone(),
             Expression::Complete(complete) => complete.evaluate(variables),
             Expression::BinaryOperator(_) => panic!("compiler done fucked up"),
+            Expression::Increment => self.clone(),
+            Expression::Decrement => self.clone()
             // Expression::CompleteU(_) => panic!("eh"),
             // Expression::IncompleteU(_) => panic!("compiler done fucked up"),
         }
