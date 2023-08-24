@@ -172,9 +172,7 @@ fn parse_next_statement(tokens: &mut VecDeque<Token>) -> Statement{
     let next_token = tokens.pop_front().unwrap();
     match next_token {
         Token::Print => {
-            tokens.pop_front(); //eat (
             let literal = parse_expression(tokens);
-            tokens.pop_front(); //eat )
             tokens.pop_front(); //eat ;
             return Statement::Print(literal);
         }
