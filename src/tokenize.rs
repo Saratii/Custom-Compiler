@@ -11,6 +11,9 @@ pub enum Token {
     StartBlock,
     EndBlock,
     TypeI32,
+    TypeI64,
+    TypeF32,
+    TypeF64,
     TypeString,
     TypeBool,
     VariableName(String),
@@ -39,6 +42,9 @@ impl Display for Token {
             Token::StartBlock => write!(f, "StartBlock"),
             Token::EndBlock => write!(f, "EndBlock"),
             Token::TypeI32 => write!(f, "TypeI32"),
+            Token::TypeI64 => write!(f, "TypeI64"),
+            Token::TypeF64 => write!(f, "TypeF64"),
+            Token::TypeF32 => write!(f, "TypeF32"),
             Token::TypeString => write!(f, "TypeString"),
             Token::TypeBool => write!(f, "TypeBool"),
             Token::VariableName(_) => write!(f, "VariableName"),
@@ -82,6 +88,9 @@ static KEYWORDS: &'static [(&str, Token)] = &[
     ("{", Token::StartBlock),
     ("String ", Token::TypeString),
     ("i32 ", Token::TypeI32),
+    ("i64 ", Token::TypeI64),
+    ("f32 ", Token::TypeF32),
+    ("f64 ", Token::TypeF64),
     ("Bool ", Token::TypeBool),
     (" + ", Token::MathOp(MathOp::Add)),
     (" - ", Token::MathOp(MathOp::Subtract)),
@@ -111,12 +120,14 @@ static KEYWORDS: &'static [(&str, Token)] = &[
 
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
+    let space_after_endline = Regex::new(r";\s*").unwrap();
     let remove_tabs = Regex::new(r"\n\s+").unwrap();
     let removed_comments = remove_comments_regex.replace_all(raw, "").to_string();
-    let mut inputs = remove_tabs.replace_all(&removed_comments.as_str(), "\n").to_string();
-    inputs = inputs.replace("\r", "").replace("\n", "");
     let number_regex = Regex::new(r"^(\d+)").unwrap();
     let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
+    let mut inputs = remove_tabs.replace_all(&removed_comments.as_str(), "\n").to_string();
+    inputs = inputs.replace("\r", "").replace("\n", "");
+    inputs = space_after_endline.replace_all(&inputs, ";").to_string();
 
     let mut tokens = VecDeque::new();
     'outer: while &inputs.len() > &0 {
@@ -556,6 +567,29 @@ while (True){
             Token::CloseParen,
             Token::EndLine,
             Token::EndBlock,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn i32_i64_f32_f64(){
+        let actual = parse_to_tokens("i32 i = 31;i64 e = 63;f32 f = 32; f64 g = 64;");
+        let expected = vec![
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("31".to_string()),
+            Token::EndLine,
+            Token::TypeI64,
+            Token::VariableName("e".to_string()),
+            Token::ConstantNumber("63".to_string()),
+            Token::EndLine,
+            Token::TypeF32,
+            Token::VariableName("f".to_string()),
+            Token::ConstantNumber("32".to_string()),
+            Token::EndLine,
+            Token::TypeF64,
+            Token::VariableName("g".to_string()),
+            Token::ConstantNumber("64".to_string()),
+            Token::EndLine,
         ];
         assert_eq!(actual, expected);
     }

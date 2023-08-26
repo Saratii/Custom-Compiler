@@ -15,3 +15,5 @@ pub fn e3() -> (i32, u128) {
     (if target < 2.0 { 2 } else { target as i32 }, start_time.elapsed().as_nanos())
 }
 */
+
+i64 target = 600851475143;

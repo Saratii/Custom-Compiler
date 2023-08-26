@@ -157,7 +157,10 @@ impl Expression {
             Expression::Complete(complete) => complete.evaluate(variables),
             Expression::BinaryOperator(_) => panic!("compiler done fucked up"),
             Expression::Increment => self.clone(),
-            Expression::Decrement => self.clone()
+            Expression::Decrement => self.clone(),
+            Expression::I64(_) => self.clone(),
+            Expression::F32(_) => self.clone(),
+            Expression::F64(_) => self.clone(),
             // Expression::CompleteU(_) => panic!("eh"),
             // Expression::IncompleteU(_) => panic!("compiler done fucked up"),
         }

@@ -1,4 +1,5 @@
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
+use colored::Colorize;
 
 use crate::tokenize::{MathOp, Token};
 #[derive(PartialEq, Debug, Clone)]
@@ -17,6 +18,9 @@ pub enum Expression {
     Bool(bool),
     Variable(String),
     I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
     Complete(Complete),
     BinaryOperator(BinaryOperator),
     Increment,
@@ -158,32 +162,36 @@ pub enum Type {
     Bool,
     String,
     I32,
+    I64,
+    F32,
+    F64,
     Variable,
 }
 pub fn parse(tokens: &mut VecDeque<Token>) -> VecDeque<Statement> {
     let mut statements = VecDeque::new();
+    let mut variable_type_map = HashMap::new();
     while tokens.len() > 0 && tokens[0] != Token::EndBlock{
-        statements.push_back(parse_next_statement(tokens));
+        statements.push_back(parse_next_statement(tokens, &mut variable_type_map));
     }
     statements
 }
 
-fn parse_next_statement(tokens: &mut VecDeque<Token>) -> Statement{
+fn parse_next_statement(tokens: &mut VecDeque<Token>, mut variable_type_map: &mut HashMap<String, Type>) -> Statement{
     let next_token = tokens.pop_front().unwrap();
     match next_token {
         Token::Print => {
-            let literal = parse_expression(tokens);
+            let literal = parse_expression(tokens, None);
             tokens.pop_front(); //eat ;
             return Statement::Print(literal);
         }
         Token::If => {
-            let condition = parse_expression(tokens);
+            let condition = parse_expression(tokens, None);
             tokens.pop_front(); //eat {
             let body = parse(tokens);
             tokens.pop_front(); //eat }
             let mut elifs = VecDeque::new();
             while tokens.len() > 0 && tokens[0] == Token::Elif{
-                let elif_condition = parse_expression(tokens);
+                let elif_condition = parse_expression(tokens, None);
                 tokens.pop_front(); //eat {
                 let elif_body = parse(tokens);
                 tokens.pop_front(); //eat }
@@ -200,9 +208,9 @@ fn parse_next_statement(tokens: &mut VecDeque<Token>) -> Statement{
         }
         Token::ForLoop => {
             tokens.pop_front(); //eat (
-            let variable = parse_next_statement(tokens);
-            let condition = parse_expression(tokens);
-            let increment = parse_next_statement(tokens);
+            let variable = parse_next_statement(tokens, &mut variable_type_map);
+            let condition = parse_expression(tokens, None);
+            let increment = parse_next_statement(tokens, &mut variable_type_map);
             tokens.pop_front(); //eat )
             tokens.pop_front(); //eat {
             let block = parse(tokens);
@@ -210,46 +218,95 @@ fn parse_next_statement(tokens: &mut VecDeque<Token>) -> Statement{
         }
         Token::TypeBool => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens);                
+                let expression = parse_expression(tokens, None);       
                 return Statement::DefineVariable(name, expression, Type::Bool);
             }
             _ => panic!("found on variable name after TypeBool"),
         }
         Token::TypeString => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens);
+                let expression = parse_expression(tokens, None);
                 return Statement::DefineVariable(name, expression, Type::String);
             }
             _ => panic!("found non variable name after TypeString"),
         }
         Token::TypeI32 => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens);
+                let expression = parse_expression(tokens, Some(Type::I32));
+                variable_type_map.insert(name.clone(), Type::I32);  
                 return Statement::DefineVariable(name, expression, Type::I32);
             }
             _ => panic!("found on variable name after TypeI32"),
         }
+        Token::TypeI64 => match tokens.pop_front().unwrap() {
+            Token::VariableName(name) => {
+                let expression = parse_expression(tokens, Some(Type::I64));
+                variable_type_map.insert(name.clone(), Type::I64);  
+                return Statement::DefineVariable(name, expression, Type::I64);
+            }
+            _ => panic!("found on variable name after TypeI64"),
+        }
+        Token::TypeF32 => match tokens.pop_front().unwrap() {
+            Token::VariableName(name) => {
+                let expression = parse_expression(tokens, Some(Type::F32));
+                variable_type_map.insert(name.clone(), Type::F32);  
+                return Statement::DefineVariable(name, expression, Type::F32);
+            }
+            _ => panic!("found on variable name after TypeF32"),
+        }
+        Token::TypeF64 => match tokens.pop_front().unwrap() {
+            Token::VariableName(name) => {
+                let expression = parse_expression(tokens, Some(Type::F64));
+                
+                variable_type_map.insert(name.clone(), Type::F64);  
+                return Statement::DefineVariable(name, expression, Type::F64);
+            }
+            _ => panic!("found on variable name after TypeF64"),
+        }
         Token::WhileLoop => {
-           let condition = parse_expression(tokens);
+           let condition = parse_expression(tokens, None);
            println!("tokens after condition found: {:?}", tokens);
            tokens.pop_front(); //eat {
            let block = parse(tokens);
            return Statement::WhileLoop(condition, block)
         }
         Token::VariableName(name) => {
-           let expression = parse_expression(tokens);
-           return Statement::ModifyVariable(name, expression)
+            let expected_type = variable_type_map.get(&name);
+            let expression;
+            match expected_type {
+                Some(type_) => {expression = parse_expression(tokens, Some(type_.clone()));}
+                None => {
+                    let error_message = format!("\nST:DNE Variable: {} does not exist\n", name);
+                    panic!("{}", error_message.purple())}
+                
+
+            }
+            return Statement::ModifyVariable(name, expression)
         }
         _ => {panic!("found {:?} trying to parse the start of a line", next_token)}
     }
 }
 
-fn parse_expression(tokens: &mut VecDeque<Token>) -> Expression {
+fn parse_expression(tokens: &mut VecDeque<Token>, expected_type: Option<Type>) -> Expression {
     let mut stack: Vec<Expression> = Vec::new();
     while tokens.len() > 0 {
         match tokens.pop_front().unwrap() {
             Token::ConstantNumber(value) => {
-                stack_helper(&mut stack, Type::I32, Some(value), None)
+                match expected_type.as_ref().unwrap(){
+                    Type::I32 => {
+                        stack_helper(&mut stack, Type::I32, Some(value), None)
+                    }
+                    Type::I64 => {
+                        stack_helper(&mut stack, Type::I64, Some(value), None)
+                    }
+                    Type::F32 => {
+                        stack_helper(&mut stack, Type::F32, Some(value), None)
+                    }
+                    Type::F64 => {
+                        stack_helper(&mut stack, Type::F64, Some(value), None)
+                    }
+                    _ => {}
+                }
             }
             Token::VariableName(name) => {
                 stack_helper(&mut stack, Type::Variable,  Some(name), None)
@@ -270,7 +327,7 @@ fn parse_expression(tokens: &mut VecDeque<Token>) -> Expression {
                 return stack[0].clone()
             }
             Token::OpenParen => {
-                return parse_expression(tokens);
+                return parse_expression(tokens, None);
             }
             Token::Increment => {
                 if tokens.len() > 0{
@@ -301,9 +358,32 @@ fn stack_helper(stack: &mut Vec<Expression>, type_: Type, string_value: Option<S
     let mut right;
     match type_{
         Type::Bool => {right = Expression::Bool(bool_value.unwrap());}
-        Type::I32 => {right = Expression::I32(string_value.unwrap().parse::<i32>().unwrap());}
+        Type::I32 => {
+            let unparsed = string_value.unwrap().parse::<i32>();
+            match unparsed {
+                Ok(value) => right = Expression::I32(value),
+                Err(_) => panic!("{}", "\nST:OVERFLOW value too large for I32\n".purple()),
+            }
+        }
         Type::String => {right = Expression::String(string_value.unwrap());}
         Type::Variable => {right = Expression::Variable(string_value.unwrap());}
+        Type::I64 => {
+            let unparsed = string_value.unwrap().parse::<i64>();
+            match unparsed {
+                Ok(value) => right = Expression::I64(value),
+                Err(_) => panic!("{}", "\nST:OVERFLOW value too large for I64\n".purple()),
+            }
+        },
+        Type::F32 => {let unparsed = string_value.unwrap().parse::<f32>();
+            match unparsed {
+                Ok(value) => right = Expression::F32(value),
+                Err(_) => panic!("{}", "\nST:OVERFLOW value too large for F32\n".purple()),
+            }},
+        Type::F64 => {let unparsed = string_value.unwrap().parse::<f64>();
+            match unparsed {
+                Ok(value) => right = Expression::F64(value),
+                Err(_) => panic!("{}", "\nST:OVERFLOW value too large for F64\n".purple()),
+            }},
     }
     loop {
         if stack.len() > 1 {
@@ -833,5 +913,47 @@ mod test {
             ),
         ];
             assert_eq!(actual, expected);
+    }
+    #[test]
+    fn i32_i64_f32_f64(){
+        let actual = parse(&mut VecDeque::from([
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("31".to_string()),
+            Token::EndLine,
+            Token::TypeI64,
+            Token::VariableName("e".to_string()),
+            Token::ConstantNumber("63".to_string()),
+            Token::EndLine,
+            Token::TypeF32,
+            Token::VariableName("f".to_string()),
+            Token::ConstantNumber("32".to_string()),
+            Token::EndLine,
+            Token::TypeF64,
+            Token::VariableName("g".to_string()),
+            Token::ConstantNumber("64".to_string()),
+            Token::EndLine,
+        ]));
+        let expected = vec![
+            Statement::DefineVariable("i".to_string(), Expression::I32(31), Type::I32),
+            Statement::DefineVariable("e".to_string(), Expression::I64(63), Type::I64),
+            Statement::DefineVariable("f".to_string(), Expression::F32(32.0), Type::F32),
+            Statement::DefineVariable("g".to_string(), Expression::F64(64.0), Type::F64),
+
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn f32_test(){
+        let actual = parse(&mut VecDeque::from([
+            Token::TypeF32,
+            Token::VariableName("e".to_string()),
+            Token::ConstantNumber("32".to_string()),
+            Token::EndLine,
+        ]));
+        let expected = vec![
+            Statement::DefineVariable("e".to_string(), Expression::F32(32.0), Type::F32)
+        ];
+        assert_eq!(actual, expected);
     }
 }
