@@ -175,7 +175,6 @@ pub enum Type {
     I64,
     F32,
     F64,
-    Variable,
 }
 pub fn parse_tokens(tokens: &mut VecDeque<Token>) -> VecDeque<Statement> {
     let mut variable_type_map = HashMap::new();
@@ -321,20 +320,20 @@ fn parse_expression(
         match tokens.pop_front().unwrap() {
             Token::ConstantNumber(value) => {
                 if expected_type == None {
-                    stack_helper(&mut stack, Type::I32, Some(value), None);
+                    stack_helper(&mut stack, Expression::I32(value.parse::<i32>().unwrap()));
                 } else {
                     match expected_type.as_ref().unwrap() {
-                        Type::I32 => stack_helper(&mut stack, Type::I32, Some(value), None),
-                        Type::I64 => stack_helper(&mut stack, Type::I64, Some(value), None),
-                        Type::F32 => stack_helper(&mut stack, Type::F32, Some(value), None),
-                        Type::F64 => stack_helper(&mut stack, Type::F64, Some(value), None),
+                        Type::I32 => stack_helper(&mut stack, Expression::I32(value.parse::<i32>().unwrap())),
+                        Type::I64 => stack_helper(&mut stack, Expression::I64(value.parse::<i64>().unwrap())),
+                        Type::F32 => stack_helper(&mut stack, Expression::F32(value.parse::<f32>().unwrap())),
+                        Type::F64 => stack_helper(&mut stack, Expression::F64(value.parse::<f64>().unwrap())),
                         _ => {}
                     }
                 }
             }
-            Token::VariableName(name) => stack_helper(&mut stack, Type::Variable, Some(name), None),
-            Token::String(literal) => stack_helper(&mut stack, Type::String, Some(literal), None),
-            Token::Boolean(literal) => stack_helper(&mut stack, Type::Bool, None, Some(literal)),
+            Token::VariableName(name) => stack_helper(&mut stack, Expression::Variable(name)),
+            Token::String(literal) => stack_helper(&mut stack, Expression::String(literal)),
+            Token::Boolean(literal) => stack_helper(&mut stack, Expression::Bool(literal)),
             Token::MathOp(opp) => {
                 stack.push(Expression::from(&opp));
             }
@@ -375,8 +374,8 @@ fn parse_expression(
                                 None,
                                 variable_type_map,
                             ));
-                            tokens.pop_front(); //eat {
-                            return Expression::FunctionCall(name, args);
+                            stack_helper(&mut stack, Expression::FunctionCall(name.clone(), args.clone()));
+                            break;
                         }
                         Token::Comma => {
                             args.push(parse_expression(
@@ -396,49 +395,35 @@ fn parse_expression(
 }
 fn stack_helper(
     stack: &mut Vec<Expression>,
-    type_: Type,
-    string_value: Option<String>,
-    bool_value: Option<bool>,
+    expression: Expression,
 ) {
     let mut right;
-    match type_ {
-        Type::Bool => {
-            right = Expression::Bool(bool_value.unwrap());
+    match expression {
+        Expression::Bool(value) => {
+            right = Expression::Bool(value);
         }
-        Type::I32 => {
-            let unparsed = string_value.unwrap().parse::<i32>();
-            match unparsed {
-                Ok(value) => right = Expression::I32(value),
-                Err(_) => panic!("{}", "\nST:OVERFLOW value too large for I32\n".purple()),
-            }
+        Expression::I32(value) => {
+            right = Expression::I32(value);
         }
-        Type::String => {
-            right = Expression::String(string_value.unwrap());
+        Expression::String(value) => {
+            right = Expression::String(value);
         }
-        Type::Variable => {
-            right = Expression::Variable(string_value.unwrap());
+        Expression::Variable(name) => {
+            right = Expression::Variable(name);
         }
-        Type::I64 => {
-            let unparsed = string_value.unwrap().parse::<i64>();
-            match unparsed {
-                Ok(value) => right = Expression::I64(value),
-                Err(_) => panic!("{}", "\nST:OVERFLOW value too large for I64\n".purple()),
-            }
+        Expression::I64(value) => {
+            right = Expression::I64(value);
         }
-        Type::F32 => {
-            let unparsed = string_value.unwrap().parse::<f32>();
-            match unparsed {
-                Ok(value) => right = Expression::F32(value),
-                Err(_) => panic!("{}", "\nST:OVERFLOW value too large for F32\n".purple()),
-            }
+        Expression::F32(value) => {
+            right = Expression::F32(value);
         }
-        Type::F64 => {
-            let unparsed = string_value.unwrap().parse::<f64>();
-            match unparsed {
-                Ok(value) => right = Expression::F64(value),
-                Err(_) => panic!("{}", "\nST:OVERFLOW value too large for F64\n".purple()),
-            }
+        Expression::F64(value) => {
+            right = Expression::F64(value);
         }
+        Expression::FunctionCall(name, args) => {
+            right = Expression::FunctionCall(name, args)
+        }
+        _ => panic!("compiler found wrong expression type in stack helper")
     }
     loop {
         if stack.len() > 1 {
