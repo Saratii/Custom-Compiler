@@ -1,5 +1,5 @@
-use std::collections::{VecDeque, HashMap};
 use colored::Colorize;
+use std::collections::{HashMap, VecDeque};
 
 use crate::tokenize::{MathOp, Token};
 #[derive(PartialEq, Debug, Clone)]
@@ -7,11 +7,23 @@ pub enum Statement {
     Print(Expression),
     DefineVariable(String, Expression, Type),
     WhileLoop(Expression, VecDeque<Statement>),
-    If(Expression, VecDeque<Statement>, VecDeque<Statement>, Option<VecDeque<Statement>>),
+    If(
+        Expression,
+        VecDeque<Statement>,
+        VecDeque<Statement>,
+        Option<VecDeque<Statement>>,
+    ),
     Elif(Expression, VecDeque<Statement>),
-    ForLoop(Box<Statement>, Expression, Box<Statement>, VecDeque<Statement>),
+    ForLoop(
+        Box<Statement>,
+        Expression,
+        Box<Statement>,
+        VecDeque<Statement>,
+    ),
     ModifyVariable(String, Expression),
+    _DefineFunction(String, Vec<Type>, VecDeque<Statement>),
 }
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
     String(String),
@@ -25,6 +37,7 @@ pub enum Expression {
     BinaryOperator(BinaryOperator),
     Increment,
     Decrement,
+    FunctionCall(String, Vec<Expression>),
     // CompleteU(CompleteU),
     // IncompleteU(IncompleteU),
 }
@@ -48,15 +61,6 @@ pub struct Complete {
     pub left: Box<Expression>,
     pub right: Box<Expression>,
 }
-// #[derive(PartialEq, Debug, Clone)]
-// pub enum CompleteU {
-//     Parenthesis(Box<Expression>),
-// }
-
-// #[derive(PartialEq, Debug, Clone)]
-// pub enum IncompleteU {
-//     Parenthesis,
-// }
 impl Expression {
     fn _get_precidence(&self) -> u8 {
         match self {
@@ -128,6 +132,7 @@ impl From<(&BinaryOperator, &Expression, &Expression)> for Complete {
 //         }
 //     }
 // }
+
 impl Complete {
     fn apply_precidence(self) -> Complete {
         match *self.left {
@@ -158,6 +163,11 @@ impl Complete {
     }
 }
 #[derive(PartialEq, Debug, Clone)]
+pub struct Function {
+    pub name: String,
+    pub block: VecDeque<Statement>,
+}
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Type {
     Bool,
     String,
@@ -167,197 +177,234 @@ pub enum Type {
     F64,
     Variable,
 }
-pub fn parse(tokens: &mut VecDeque<Token>) -> VecDeque<Statement> {
-    let mut statements = VecDeque::new();
+pub fn parse_tokens(tokens: &mut VecDeque<Token>) -> VecDeque<Statement> {
     let mut variable_type_map = HashMap::new();
-    while tokens.len() > 0 && tokens[0] != Token::EndBlock{
-        statements.push_back(parse_next_statement(tokens, &mut variable_type_map));
+
+    return parse(tokens, &mut variable_type_map);
+}
+fn parse(
+    tokens: &mut VecDeque<Token>,
+    variable_type_map: &mut HashMap<String, Type>,
+) -> VecDeque<Statement> {
+    let mut statements = VecDeque::new();
+    while tokens.len() > 0 && tokens[0] != Token::EndBlock {
+        statements.push_back(parse_next_statement(tokens, variable_type_map));
     }
     statements
 }
 
-fn parse_next_statement(tokens: &mut VecDeque<Token>, mut variable_type_map: &mut HashMap<String, Type>) -> Statement{
+fn parse_next_statement(
+    tokens: &mut VecDeque<Token>,
+    mut variable_type_map: &mut HashMap<String, Type>,
+) -> Statement {
     let next_token = tokens.pop_front().unwrap();
     match next_token {
         Token::Print => {
-            let literal = parse_expression(tokens, None);
+            let literal = parse_expression(tokens, None, variable_type_map);
             tokens.pop_front(); //eat ;
             return Statement::Print(literal);
         }
         Token::If => {
-            let condition = parse_expression(tokens, None);
+            let condition = parse_expression(tokens, None, variable_type_map);
             tokens.pop_front(); //eat {
-            let body = parse(tokens);
+            let body = parse(tokens, &mut variable_type_map);
             tokens.pop_front(); //eat }
             let mut elifs = VecDeque::new();
-            while tokens.len() > 0 && tokens[0] == Token::Elif{
-                let elif_condition = parse_expression(tokens, None);
+            while tokens.len() > 0 && tokens[0] == Token::Elif {
+                let elif_condition = parse_expression(tokens, None, variable_type_map);
                 tokens.pop_front(); //eat {
-                let elif_body = parse(tokens);
+                let elif_body = parse(tokens, &mut variable_type_map);
                 tokens.pop_front(); //eat }
                 elifs.push_back(Statement::Elif(elif_condition, elif_body));
             }
             let mut else_body = None;
-            if tokens.len() > 0 && tokens[0] == Token::Else{
+            if tokens.len() > 0 && tokens[0] == Token::Else {
                 tokens.pop_front(); //eat else
                 tokens.pop_front(); //eat {
-                else_body = Some(parse(tokens));
-                tokens.pop_front(); //eat }, 
+                else_body = Some(parse(tokens, &mut variable_type_map));
+                tokens.pop_front(); //eat },
             }
-            return Statement::If(condition, body, elifs, else_body)
+            return Statement::If(condition, body, elifs, else_body);
         }
         Token::ForLoop => {
             tokens.pop_front(); //eat (
             let variable = parse_next_statement(tokens, &mut variable_type_map);
-            let condition = parse_expression(tokens, None);
+            let condition = parse_expression(tokens, None, variable_type_map);
             let increment = parse_next_statement(tokens, &mut variable_type_map);
             tokens.pop_front(); //eat )
             tokens.pop_front(); //eat {
-            let block = parse(tokens);
-            return Statement::ForLoop(Box::new(variable), condition, Box::new(increment), block)
+            let block = parse(tokens, &mut variable_type_map);
+            return Statement::ForLoop(Box::new(variable), condition, Box::new(increment), block);
         }
         Token::TypeBool => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens, None);       
+                let expression = parse_expression(tokens, None, variable_type_map);
+                variable_type_map.insert(name.clone(), Type::Bool);
                 return Statement::DefineVariable(name, expression, Type::Bool);
             }
             _ => panic!("found on variable name after TypeBool"),
-        }
+        },
         Token::TypeString => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens, None);
+                let expression = parse_expression(tokens, None, variable_type_map);
+                variable_type_map.insert(name.clone(), Type::String);
                 return Statement::DefineVariable(name, expression, Type::String);
             }
             _ => panic!("found non variable name after TypeString"),
-        }
+        },
         Token::TypeI32 => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens, Some(Type::I32));
-                variable_type_map.insert(name.clone(), Type::I32);  
+                let expression = parse_expression(tokens, Some(Type::I32), variable_type_map);
+                variable_type_map.insert(name.clone(), Type::I32);
                 return Statement::DefineVariable(name, expression, Type::I32);
             }
             _ => panic!("found on variable name after TypeI32"),
-        }
+        },
         Token::TypeI64 => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens, Some(Type::I64));
-                variable_type_map.insert(name.clone(), Type::I64);  
+                let expression = parse_expression(tokens, Some(Type::I64), variable_type_map);
+                variable_type_map.insert(name.clone(), Type::I64);
                 return Statement::DefineVariable(name, expression, Type::I64);
             }
             _ => panic!("found on variable name after TypeI64"),
-        }
+        },
         Token::TypeF32 => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens, Some(Type::F32));
-                variable_type_map.insert(name.clone(), Type::F32);  
+                let expression = parse_expression(tokens, Some(Type::F32), variable_type_map);
+                variable_type_map.insert(name.clone(), Type::F32);
                 return Statement::DefineVariable(name, expression, Type::F32);
             }
             _ => panic!("found on variable name after TypeF32"),
-        }
+        },
         Token::TypeF64 => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
-                let expression = parse_expression(tokens, Some(Type::F64));
-                
-                variable_type_map.insert(name.clone(), Type::F64);  
+                let expression = parse_expression(tokens, Some(Type::F64), variable_type_map);
+
+                variable_type_map.insert(name.clone(), Type::F64);
                 return Statement::DefineVariable(name, expression, Type::F64);
             }
             _ => panic!("found on variable name after TypeF64"),
-        }
+        },
         Token::WhileLoop => {
-           let condition = parse_expression(tokens, None);
-           println!("tokens after condition found: {:?}", tokens);
-           tokens.pop_front(); //eat {
-           let block = parse(tokens);
-           return Statement::WhileLoop(condition, block)
+            let condition = parse_expression(tokens, None, variable_type_map);
+            tokens.pop_front(); //eat {
+            let block = parse(tokens, &mut variable_type_map);
+            return Statement::WhileLoop(condition, block);
         }
         Token::VariableName(name) => {
             let expected_type = variable_type_map.get(&name);
             let expression;
             match expected_type {
-                Some(type_) => {expression = parse_expression(tokens, Some(type_.clone()));}
+                Some(type_) => {
+                    expression = parse_expression(tokens, Some(type_.clone()), variable_type_map);
+                }
                 None => {
                     let error_message = format!("\nST:DNE Variable: {} does not exist\n", name);
-                    panic!("{}", error_message.purple())}
-                
-
+                    panic!("{}", error_message.purple())
+                }
             }
-            return Statement::ModifyVariable(name, expression)
+            return Statement::ModifyVariable(name, expression);
         }
-        _ => {panic!("found {:?} trying to parse the start of a line", next_token)}
+        _ => {
+            panic!("found {:?} trying to parse the start of a line", next_token)
+        }
     }
 }
 
-fn parse_expression(tokens: &mut VecDeque<Token>, expected_type: Option<Type>) -> Expression {
+fn parse_expression(
+    tokens: &mut VecDeque<Token>,
+    expected_type: Option<Type>,
+    variable_type_map: &mut HashMap<String, Type>,
+) -> Expression {
     let mut stack: Vec<Expression> = Vec::new();
     while tokens.len() > 0 {
         match tokens.pop_front().unwrap() {
             Token::ConstantNumber(value) => {
-                match expected_type.as_ref().unwrap(){
-                    Type::I32 => {
-                        stack_helper(&mut stack, Type::I32, Some(value), None)
+                if expected_type == None {
+                    stack_helper(&mut stack, Type::I32, Some(value), None);
+                } else {
+                    match expected_type.as_ref().unwrap() {
+                        Type::I32 => stack_helper(&mut stack, Type::I32, Some(value), None),
+                        Type::I64 => stack_helper(&mut stack, Type::I64, Some(value), None),
+                        Type::F32 => stack_helper(&mut stack, Type::F32, Some(value), None),
+                        Type::F64 => stack_helper(&mut stack, Type::F64, Some(value), None),
+                        _ => {}
                     }
-                    Type::I64 => {
-                        stack_helper(&mut stack, Type::I64, Some(value), None)
-                    }
-                    Type::F32 => {
-                        stack_helper(&mut stack, Type::F32, Some(value), None)
-                    }
-                    Type::F64 => {
-                        stack_helper(&mut stack, Type::F64, Some(value), None)
-                    }
-                    _ => {}
                 }
             }
-            Token::VariableName(name) => {
-                stack_helper(&mut stack, Type::Variable,  Some(name), None)
-            }
-            Token::String(literal) => {
-                stack_helper(&mut stack, Type::String, Some(literal), None)
-            }
-            Token::Boolean(literal) => {
-                stack_helper(&mut stack, Type::Bool, None, Some(literal))
-            }
+            Token::VariableName(name) => stack_helper(&mut stack, Type::Variable, Some(name), None),
+            Token::String(literal) => stack_helper(&mut stack, Type::String, Some(literal), None),
+            Token::Boolean(literal) => stack_helper(&mut stack, Type::Bool, None, Some(literal)),
             Token::MathOp(opp) => {
                 stack.push(Expression::from(&opp));
             }
-            Token::EndLine => {
-                return stack[0].clone()
-            }
-            Token::CloseParen => {
-                return stack[0].clone()
-            }
+            Token::EndLine => return stack[0].clone(),
+            Token::CloseParen => return stack[0].clone(),
             Token::OpenParen => {
-                return parse_expression(tokens, None);
+                return parse_expression(tokens, None, variable_type_map);
             }
             Token::Increment => {
-                if tokens.len() > 0{
+                if tokens.len() > 0 {
                     let next = tokens.pop_front().unwrap(); //eat ;
-                    match next{
+                    match next {
                         Token::EndLine => {}
-                        _ => {tokens.push_front(next)}
+                        _ => tokens.push_front(next),
                     }
                 }
-                return Expression::Increment
+                return Expression::Increment;
             }
             Token::Decrement => {
-                if tokens.len() > 0{
+                if tokens.len() > 0 {
                     let next = tokens.pop_front().unwrap(); //eat ;
-                    match next{
+                    match next {
                         Token::EndLine => {}
-                        _ => {tokens.push_front(next)}
+                        _ => tokens.push_front(next),
                     }
                 }
-                return Expression::Decrement
+                return Expression::Decrement;
+            }
+            Token::FunctionCall(name) => {
+                let mut args = Vec::new();
+                let mut single_arg_tokens = VecDeque::new();
+                loop {
+                    let next_token = tokens.pop_front().unwrap();
+                    match next_token {
+                        Token::CloseParen => {
+                            args.push(parse_expression(
+                                &mut single_arg_tokens,
+                                None,
+                                variable_type_map,
+                            ));
+                            tokens.pop_front(); //eat {
+                            return Expression::FunctionCall(name, args);
+                        }
+                        Token::Comma => {
+                            args.push(parse_expression(
+                                &mut single_arg_tokens,
+                                None,
+                                variable_type_map,
+                            ));
+                        }
+                        _ => single_arg_tokens.push_back(next_token),
+                    }
+                }
             }
             _ => {}
         }
     }
     stack[0].clone()
 }
-fn stack_helper(stack: &mut Vec<Expression>, type_: Type, string_value: Option<String>, bool_value: Option<bool>){
+fn stack_helper(
+    stack: &mut Vec<Expression>,
+    type_: Type,
+    string_value: Option<String>,
+    bool_value: Option<bool>,
+) {
     let mut right;
-    match type_{
-        Type::Bool => {right = Expression::Bool(bool_value.unwrap());}
+    match type_ {
+        Type::Bool => {
+            right = Expression::Bool(bool_value.unwrap());
+        }
         Type::I32 => {
             let unparsed = string_value.unwrap().parse::<i32>();
             match unparsed {
@@ -365,25 +412,33 @@ fn stack_helper(stack: &mut Vec<Expression>, type_: Type, string_value: Option<S
                 Err(_) => panic!("{}", "\nST:OVERFLOW value too large for I32\n".purple()),
             }
         }
-        Type::String => {right = Expression::String(string_value.unwrap());}
-        Type::Variable => {right = Expression::Variable(string_value.unwrap());}
+        Type::String => {
+            right = Expression::String(string_value.unwrap());
+        }
+        Type::Variable => {
+            right = Expression::Variable(string_value.unwrap());
+        }
         Type::I64 => {
             let unparsed = string_value.unwrap().parse::<i64>();
             match unparsed {
                 Ok(value) => right = Expression::I64(value),
                 Err(_) => panic!("{}", "\nST:OVERFLOW value too large for I64\n".purple()),
             }
-        },
-        Type::F32 => {let unparsed = string_value.unwrap().parse::<f32>();
+        }
+        Type::F32 => {
+            let unparsed = string_value.unwrap().parse::<f32>();
             match unparsed {
                 Ok(value) => right = Expression::F32(value),
                 Err(_) => panic!("{}", "\nST:OVERFLOW value too large for F32\n".purple()),
-            }},
-        Type::F64 => {let unparsed = string_value.unwrap().parse::<f64>();
+            }
+        }
+        Type::F64 => {
+            let unparsed = string_value.unwrap().parse::<f64>();
             match unparsed {
                 Ok(value) => right = Expression::F64(value),
                 Err(_) => panic!("{}", "\nST:OVERFLOW value too large for F64\n".purple()),
-            }},
+            }
+        }
     }
     loop {
         if stack.len() > 1 {
@@ -392,8 +447,7 @@ fn stack_helper(stack: &mut Vec<Expression>, type_: Type, string_value: Option<S
             match operator {
                 Expression::BinaryOperator(binary_operator) => {
                     right = Expression::Complete(
-                        Complete::from((&binary_operator, &left, &right))
-                            .apply_precidence(),
+                        Complete::from((&binary_operator, &left, &right)).apply_precidence(),
                     );
                 }
                 _ => {
@@ -411,27 +465,29 @@ fn stack_helper(stack: &mut Vec<Expression>, type_: Type, string_value: Option<S
 }
 #[cfg(test)]
 mod test {
-    use super::{parse, Statement, Type};
+    use super::{Statement, Type};
     use crate::{
-        parse::{BinaryOperator, Complete, Expression},
+        parse::{parse_tokens, BinaryOperator, Complete, Expression},
         tokenize::{MathOp, Token},
     };
     use std::collections::VecDeque;
     #[test]
     fn hello_world() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::Print,
             Token::OpenParen,
             Token::String("hello world".to_string()),
             Token::CloseParen,
             Token::EndLine,
         ]));
-        let expected = vec![Statement::Print(Expression::String("hello world".to_string()))];
+        let expected = vec![Statement::Print(Expression::String(
+            "hello world".to_string(),
+        ))];
         assert_eq!(actual, expected);
     }
     #[test]
     fn bool_test() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeBool,
             Token::VariableName("peepaw".to_string()),
             Token::Boolean(true),
@@ -446,7 +502,7 @@ mod test {
     }
     #[test]
     fn print_variable_test() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeBool,
             Token::VariableName("eee".to_string()),
             Token::Boolean(true),
@@ -465,7 +521,7 @@ mod test {
     }
     #[test]
     fn print_string_test() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeString,
             Token::VariableName("ee".to_string()),
             Token::String("should I kill myself?".to_string()),
@@ -488,7 +544,7 @@ mod test {
     }
     #[test]
     fn simple_while_loop() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::WhileLoop,
             Token::OpenParen,
             Token::Boolean(true),
@@ -501,17 +557,15 @@ mod test {
             Token::EndLine,
             Token::EndBlock,
         ]));
-        let expected = vec![
-            Statement::WhileLoop(
-                Expression::Bool(true),
-                VecDeque::from([Statement::Print(Expression::String("69".to_string()))]),
-            ),
-        ];
+        let expected = vec![Statement::WhileLoop(
+            Expression::Bool(true),
+            VecDeque::from([Statement::Print(Expression::String("69".to_string()))]),
+        )];
         assert_eq!(actual, expected);
     }
     #[test]
     fn change_variable() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI32,
             Token::VariableName("i".to_string()),
             Token::ConstantNumber("0".to_string()),
@@ -542,10 +596,7 @@ mod test {
                 Expression::String("hello".to_string()),
                 Type::String,
             ),
-            Statement::ModifyVariable(
-                "e".to_string(),
-                Expression::String("bye".to_string()),
-            ),
+            Statement::ModifyVariable("e".to_string(), Expression::String("bye".to_string())),
             Statement::DefineVariable("yes".to_string(), Expression::Bool(true), Type::Bool),
             Statement::ModifyVariable("yes".to_string(), Expression::Bool(false)),
         ];
@@ -553,7 +604,7 @@ mod test {
     }
     #[test]
     fn math_test() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("4".to_string()),
@@ -586,7 +637,7 @@ mod test {
     }
     #[test]
     fn oop_test() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("1".to_string()),
@@ -619,7 +670,7 @@ mod test {
     }
     #[test]
     fn simple_print_add() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::Print,
             Token::OpenParen,
             Token::ConstantNumber("1".to_string()),
@@ -637,7 +688,7 @@ mod test {
     }
     #[test]
     fn variable_adding() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("1".to_string()),
@@ -667,7 +718,7 @@ mod test {
     }
     #[test]
     fn basic_if() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("69".to_string()),
@@ -696,14 +747,14 @@ mod test {
                 }),
                 VecDeque::from([Statement::Print(Expression::Variable("e".to_string()))]),
                 VecDeque::new(),
-                None
+                None,
             ),
         ];
         assert_eq!(actual, expected);
     }
     #[test]
     fn for_loop() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::ForLoop,
             Token::OpenParen,
             Token::TypeI32,
@@ -725,30 +776,28 @@ mod test {
             Token::EndLine,
             Token::EndBlock,
         ]));
-        let expected = vec![
-            Statement::ForLoop(
-                Box::new(Statement::DefineVariable(
-                    "i".to_string(),
-                    Expression::I32(0),
-                    Type::I32,
-                )),
-                Expression::Complete(Complete {
-                    operator: BinaryOperator::LessThan,
-                    left: Box::new(Expression::Variable("i".to_string())),
-                    right: Box::new(Expression::I32(10)),
-                }),
-                Box::new(Statement::ModifyVariable(
-                    "i".to_string(),
-                    Expression::Increment,
-                )),
-                VecDeque::from([Statement::Print(Expression::Variable("i".to_string()))]),
-            ),
-        ];
+        let expected = vec![Statement::ForLoop(
+            Box::new(Statement::DefineVariable(
+                "i".to_string(),
+                Expression::I32(0),
+                Type::I32,
+            )),
+            Expression::Complete(Complete {
+                operator: BinaryOperator::LessThan,
+                left: Box::new(Expression::Variable("i".to_string())),
+                right: Box::new(Expression::I32(10)),
+            }),
+            Box::new(Statement::ModifyVariable(
+                "i".to_string(),
+                Expression::Increment,
+            )),
+            VecDeque::from([Statement::Print(Expression::Variable("i".to_string()))]),
+        )];
         assert_eq!(actual, expected);
     }
     #[test]
     fn double_if() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::If,
             Token::OpenParen,
             Token::Boolean(true),
@@ -767,26 +816,22 @@ mod test {
             Token::EndBlock,
             Token::EndBlock,
         ]));
-        let expected = vec![
-            Statement::If(
-                Expression::Bool(true),
-                VecDeque::from([
-                    Statement::If(
-                        Expression::Bool(false),
-                        VecDeque::from([Statement::Print(Expression::String("a".to_string()))]),
-                        VecDeque::new(),
-                        None
-                    ),
-                ]),
+        let expected = vec![Statement::If(
+            Expression::Bool(true),
+            VecDeque::from([Statement::If(
+                Expression::Bool(false),
+                VecDeque::from([Statement::Print(Expression::String("a".to_string()))]),
                 VecDeque::new(),
-                None
-            ),
-        ];
+                None,
+            )]),
+            VecDeque::new(),
+            None,
+        )];
         assert_eq!(actual, expected);
     }
     #[test]
     fn more_if() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::If,
             Token::OpenParen,
             Token::Boolean(true),
@@ -815,33 +860,31 @@ mod test {
             Token::EndLine,
             Token::EndBlock,
             Token::EndBlock,
-        ]));    
-        let expected = vec![
-            Statement::If(
-                Expression::Bool(true),
-                VecDeque::from([
-                    Statement::If(
-                        Expression::Bool(false),
-                        VecDeque::from([Statement::Print(Expression::String("a".to_string()))]),
-                        VecDeque::new(),
-                        None
-                    ),
-                    Statement::If(
-                        Expression::Bool(true),
-                        VecDeque::from([Statement::Print(Expression::String("n".to_string()))]),
-                        VecDeque::new(),
-                        None
-                    )
-                ]),
-                VecDeque::new(),
-                None
-            )
-        ];
+        ]));
+        let expected = vec![Statement::If(
+            Expression::Bool(true),
+            VecDeque::from([
+                Statement::If(
+                    Expression::Bool(false),
+                    VecDeque::from([Statement::Print(Expression::String("a".to_string()))]),
+                    VecDeque::new(),
+                    None,
+                ),
+                Statement::If(
+                    Expression::Bool(true),
+                    VecDeque::from([Statement::Print(Expression::String("n".to_string()))]),
+                    VecDeque::new(),
+                    None,
+                ),
+            ]),
+            VecDeque::new(),
+            None,
+        )];
         assert_eq!(actual, expected);
     }
     #[test]
     fn increment_test() {
-        let actual = parse(&mut VecDeque::from([
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI32,
             Token::VariableName("w".to_string()),
             Token::ConstantNumber("68".to_string()),
@@ -852,16 +895,13 @@ mod test {
         ]));
         let expected = vec![
             Statement::DefineVariable("w".to_string(), Expression::I32(68), Type::I32),
-            Statement::ModifyVariable(
-                "w".to_string(),
-                Expression::Decrement,
-            ),
+            Statement::ModifyVariable("w".to_string(), Expression::Decrement),
         ];
         assert_eq!(actual, expected);
     }
     #[test]
-    fn if_elif_elif_else(){
-        let actual = parse(&mut VecDeque::from([
+    fn if_elif_elif_else() {
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI32,
             Token::VariableName("i".to_string()),
             Token::ConstantNumber("69".to_string()),
@@ -897,26 +937,38 @@ mod test {
         let expected = vec![
             Statement::DefineVariable("i".to_string(), Expression::I32(69), Type::I32),
             Statement::If(
-                Expression::Complete(Complete{operator: BinaryOperator::Equals, left: Box::new(Expression::Variable("i".to_string())), right: Box::new(Expression::I32(6))}),
+                Expression::Complete(Complete {
+                    operator: BinaryOperator::Equals,
+                    left: Box::new(Expression::Variable("i".to_string())),
+                    right: Box::new(Expression::I32(6)),
+                }),
                 VecDeque::from([]),
                 VecDeque::from([
                     Statement::Elif(
-                        Expression::Complete(Complete{operator: BinaryOperator::Equals, left: Box::new(Expression::Variable("i".to_string())), right: Box::new(Expression::I32(7))}),
-                        VecDeque::from([])
+                        Expression::Complete(Complete {
+                            operator: BinaryOperator::Equals,
+                            left: Box::new(Expression::Variable("i".to_string())),
+                            right: Box::new(Expression::I32(7)),
+                        }),
+                        VecDeque::from([]),
                     ),
                     Statement::Elif(
-                        Expression::Complete(Complete{operator: BinaryOperator::Equals, left: Box::new(Expression::Variable("i".to_string())), right: Box::new(Expression::I32(69))}),
-                        VecDeque::from([])
-                    )
+                        Expression::Complete(Complete {
+                            operator: BinaryOperator::Equals,
+                            left: Box::new(Expression::Variable("i".to_string())),
+                            right: Box::new(Expression::I32(69)),
+                        }),
+                        VecDeque::from([]),
+                    ),
                 ]),
-                Some(VecDeque::new())
+                Some(VecDeque::new()),
             ),
         ];
-            assert_eq!(actual, expected);
+        assert_eq!(actual, expected);
     }
     #[test]
-    fn i32_i64_f32_f64(){
-        let actual = parse(&mut VecDeque::from([
+    fn i32_i64_f32_f64() {
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI32,
             Token::VariableName("i".to_string()),
             Token::ConstantNumber("31".to_string()),
@@ -939,20 +991,82 @@ mod test {
             Statement::DefineVariable("e".to_string(), Expression::I64(63), Type::I64),
             Statement::DefineVariable("f".to_string(), Expression::F32(32.0), Type::F32),
             Statement::DefineVariable("g".to_string(), Expression::F64(64.0), Type::F64),
-
         ];
         assert_eq!(actual, expected);
     }
     #[test]
-    fn f32_test(){
-        let actual = parse(&mut VecDeque::from([
+    fn f32_test() {
+        let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeF32,
             Token::VariableName("e".to_string()),
             Token::ConstantNumber("32".to_string()),
             Token::EndLine,
         ]));
+        let expected = vec![Statement::DefineVariable(
+            "e".to_string(),
+            Expression::F32(32.0),
+            Type::F32,
+        )];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn simple_cast() {
+        let actual = parse_tokens(&mut VecDeque::from([
+            Token::TypeI32,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("6".to_string()),
+            Token::EndLine,
+            Token::TypeI64,
+            Token::VariableName("e".to_string()),
+            Token::FunctionCall("i64()".to_string()),
+            Token::VariableName("i".to_string()),
+            Token::CloseParen,
+            Token::EndLine,
+        ]));
         let expected = vec![
-            Statement::DefineVariable("e".to_string(), Expression::F32(32.0), Type::F32)
+            Statement::DefineVariable("i".to_string(), Expression::I32(6), Type::I32),
+            Statement::DefineVariable(
+                "e".to_string(),
+                Expression::FunctionCall(
+                    "i64()".to_string(),
+                    vec![Expression::Variable("i".to_string())],
+                ),
+                Type::I64,
+            ),
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn cast_in_while() {
+        let actual = parse_tokens(&mut VecDeque::from([
+            Token::TypeI64,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("6".to_string()),
+            Token::EndLine,
+            Token::WhileLoop,
+            Token::OpenParen,
+            Token::VariableName("i".to_string()),
+            Token::MathOp(MathOp::NotEqual),
+            Token::FunctionCall("i64()".to_string()),
+            Token::ConstantNumber("2".to_string()),
+            Token::CloseParen,
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::EndBlock,
+        ]));
+        let expected = vec![
+            Statement::DefineVariable("i".to_string(), Expression::I64(6), Type::I64),
+            Statement::WhileLoop(
+                Expression::Complete(Complete {
+                    operator: BinaryOperator::NotEqual,
+                    left: Box::new(Expression::Variable("i".to_string())),
+                    right: Box::new(Expression::FunctionCall(
+                        "i64()".to_string(),
+                        vec![Expression::I32(2)],
+                    )),
+                }),
+                VecDeque::new(),
+            ),
         ];
         assert_eq!(actual, expected);
     }

@@ -25,11 +25,12 @@ pub enum Token {
     If,
     ForLoop,
     Comma,
-    Ignore,
     Increment,
     Decrement,
     Else,
     Elif,
+    FunctionCall(String),
+    Ignore,
 }
 
 impl Display for Token {
@@ -56,11 +57,12 @@ impl Display for Token {
             Token::If => write!(f, "If"),
             Token::ForLoop => write!(f, "ForLoop"),
             Token::Comma => write!(f, "Comma"),
-            Token::Ignore => write!(f, "Ignore"),
             Token::Increment => write!(f, "IncrementUp"),
             Token::Decrement => write!(f, "IncrementDown"),
             Token::Else => write!(f, "Else"),
             Token::Elif => write!(f, "Elif"),
+            Token::FunctionCall(name) => write!(f, "Function: {name}"),
+            Token::Ignore => write!(f, "Ignore"),
         }
     }
 }
@@ -80,58 +82,55 @@ pub enum MathOp {
     GreaterThanOrEqualTo,
 }
 
-static KEYWORDS: &'static [(&str, Token)] = &[
-    ("print", Token::Print),
-    ("(", Token::OpenParen),
-    (")", Token::CloseParen),
-    ("}", Token::EndBlock),
-    ("{", Token::StartBlock),
-    ("String ", Token::TypeString),
-    ("i32 ", Token::TypeI32),
-    ("i64 ", Token::TypeI64),
-    ("f32 ", Token::TypeF32),
-    ("f64 ", Token::TypeF64),
-    ("Bool ", Token::TypeBool),
-    (" + ", Token::MathOp(MathOp::Add)),
-    (" - ", Token::MathOp(MathOp::Subtract)),
-    (" * ", Token::MathOp(MathOp::Multiply)),
-    (" / ", Token::MathOp(MathOp::Divide)),
-    (" % ", Token::MathOp(MathOp::Modulus)),
-    (" > ", Token::MathOp(MathOp::GreaterThan)),
-    (" < ", Token::MathOp(MathOp::LessThan)),
-    (" >= ", Token::MathOp(MathOp::GreaterThanOrEqualTo)),
-    (" <= ", Token::MathOp(MathOp::LessThanOrEqualTo)),
-    (", ", Token::Comma),
-    (" == ", Token::MathOp(MathOp::Equals)),
-    (" != ", Token::MathOp(MathOp::NotEqual)),
-    ("True", Token::Boolean(true)),
-    ("False", Token::Boolean(false)),
-    (";", Token::EndLine),
-    ("while ", Token::WhileLoop),
-    ("while", Token::WhileLoop),
-    ("for", Token::ForLoop),
-    ("if", Token::If),
-    (" = ", Token::Ignore),
-    ("++", Token::Increment),
-    ("--", Token::Decrement),
-    ("else", Token::Else),
-    ("elif", Token::Elif),
-];
-
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
-    let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
-    let space_after_endline = Regex::new(r";\s*").unwrap();
-    let remove_tabs = Regex::new(r"\n\s+").unwrap();
-    let removed_comments = remove_comments_regex.replace_all(raw, "").to_string();
     let number_regex = Regex::new(r"^(\d+)").unwrap();
     let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
-    let mut inputs = remove_tabs.replace_all(&removed_comments.as_str(), "\n").to_string();
-    inputs = inputs.replace("\r", "").replace("\n", "");
-    inputs = space_after_endline.replace_all(&inputs, ";").to_string();
-
+    let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
+    let keywords = Vec::from([
+        ("print", Token::Print),
+        ("(", Token::OpenParen),
+        (")", Token::CloseParen),
+        ("}", Token::EndBlock),
+        ("{", Token::StartBlock),
+        ("i32(", Token::FunctionCall("i32()".to_string())),
+        ("i64(", Token::FunctionCall("i64()".to_string())),
+        ("f32(", Token::FunctionCall("f32()".to_string())),
+        ("f64(", Token::FunctionCall("f64()".to_string())),
+        ("String", Token::TypeString),
+        ("i32", Token::TypeI32),
+        ("i64", Token::TypeI64),
+        ("f32", Token::TypeF32),
+        ("f64", Token::TypeF64),
+        ("Bool", Token::TypeBool),
+        ("++", Token::Increment),
+        ("--", Token::Decrement),
+        ("+", Token::MathOp(MathOp::Add)),
+        ("-", Token::MathOp(MathOp::Subtract)),
+        ("*", Token::MathOp(MathOp::Multiply)),
+        ("/", Token::MathOp(MathOp::Divide)),
+        ("%", Token::MathOp(MathOp::Modulus)),
+        (">", Token::MathOp(MathOp::GreaterThan)),
+        ("<", Token::MathOp(MathOp::LessThan)),
+        (">=", Token::MathOp(MathOp::GreaterThanOrEqualTo)),
+        ("<=", Token::MathOp(MathOp::LessThanOrEqualTo)),
+        (",", Token::Comma),
+        ("==", Token::MathOp(MathOp::Equals)),
+        ("!=", Token::MathOp(MathOp::NotEqual)),
+        ("True", Token::Boolean(true)),
+        ("False", Token::Boolean(false)),
+        (";", Token::EndLine),
+        ("while", Token::WhileLoop),
+        ("for", Token::ForLoop),
+        ("if", Token::If),
+        ("else", Token::Else),
+        ("elif", Token::Elif),
+        ("=", Token::Ignore),
+    ]);
+    let mut inputs = remove_comments_regex.replace_all(raw, "").to_string();
+    inputs = remove_spaces(&inputs);
     let mut tokens = VecDeque::new();
     'outer: while &inputs.len() > &0 {
-        for (keyword, token) in KEYWORDS {
+        for (keyword, token) in &keywords {
             if inputs.starts_with(keyword) {
                 tokens.push_back(token.clone());
                 inputs = inputs[keyword.len()..].to_string();
@@ -171,7 +170,7 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
             inputs = inputs[variable_name.len()..].to_string();
         } else {
             if inputs.len() != 0 {
-                println!("Oopsie Woopsie: Code contains something that doesnt parse or hidden characters: {}", &inputs[0..])
+                panic!("Oopsie Woopsie: Code contains something that doesnt parse or hidden characters: {}", &inputs[0..])
             }
             break;
         }
@@ -180,6 +179,24 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     tokens
 }
 
+pub fn remove_spaces(raw: &str) -> String {
+    let mut eat = true;
+    let chars: Vec<_> = raw.chars().collect();
+    let mut result = String::new();
+    for i in 0..chars.len() {
+        if chars[i] != ' ' && chars[i] != '\t' && chars[i] != '\r' && chars[i] != '\n' {
+            if (chars[i] == '"' || chars[i] == '\'') && chars[i - 1] != '\\' {
+                eat = !eat;
+            }
+            result.push(chars[i]);
+        } else {
+            if !eat {
+                result.push(chars[i])
+            }
+        }
+    }
+    return result;
+}
 #[cfg(test)]
 mod test {
 
@@ -188,7 +205,7 @@ mod test {
     use super::{parse_to_tokens, Token};
 
     #[test]
-    fn test_1() {
+    fn hello_world() {
         let actual = parse_to_tokens("print(\"hello world\");");
         let expected = vec![
             Token::Print,
@@ -510,7 +527,7 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn basic_comment(){
+    fn basic_comment() {
         let actual = parse_to_tokens("i32 i = 10;\n//i32 e = 9;\ni32 g = 8;");
         let expected = vec![
             Token::TypeI32,
@@ -520,12 +537,12 @@ while (True){
             Token::TypeI32,
             Token::VariableName("g".to_string()),
             Token::ConstantNumber("8".to_string()),
-            Token::EndLine
-            ];
-            assert_eq!(actual, expected);
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
     }
     #[test]
-    fn multi_line_comment(){
+    fn multi_line_comment() {
         let actual = parse_to_tokens("i32 i = 10;\n/*unga\nbunga\nwunga\n*/i32 e = 0;");
         let expected = vec![
             Token::TypeI32,
@@ -540,7 +557,7 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn else_elif_test(){
+    fn else_elif_test() {
         let actual = parse_to_tokens("if(i == 6){}elif(i == 7){}else{print(\"e\");}");
         let expected = vec![
             Token::If,
@@ -571,7 +588,7 @@ while (True){
         assert_eq!(actual, expected);
     }
     #[test]
-    fn i32_i64_f32_f64(){
+    fn i32_i64_f32_f64() {
         let actual = parse_to_tokens("i32 i = 31;i64 e = 63;f32 f = 32; f64 g = 64;");
         let expected = vec![
             Token::TypeI32,
