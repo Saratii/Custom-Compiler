@@ -288,6 +288,7 @@ fn parse_next_statement(
             let condition = parse_expression(tokens, None, variable_type_map);
             tokens.pop_front(); //eat {
             let block = parse(tokens, &mut variable_type_map);
+            tokens.pop_front(); //eat }
             return Statement::WhileLoop(condition, block);
         }
         Token::VariableName(name) => {
@@ -1052,6 +1053,32 @@ mod test {
                 }),
                 VecDeque::new(),
             ),
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn statement_after_loop(){
+        let actual = parse_tokens(&mut VecDeque::from([
+            Token::TypeI64,
+            Token::VariableName("i".to_string()),
+            Token::ConstantNumber("9".to_string()),
+            Token::EndLine,
+            Token::WhileLoop,
+            Token::OpenParen,
+            Token::Boolean(false),
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::EndBlock,
+            Token::Print,
+            Token::OpenParen,
+            Token::VariableName("i".to_string()),
+            Token::CloseParen,
+            Token::EndLine,
+        ]));
+        let expected = vec![
+            Statement::DefineVariable("i".to_string(), Expression::I64(9), Type::I64),
+            Statement::WhileLoop(Expression::Bool(false), VecDeque::new()),
+            Statement::Print(Expression::Variable("i".to_string())),
         ];
         assert_eq!(actual, expected);
     }

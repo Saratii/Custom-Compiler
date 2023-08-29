@@ -2,9 +2,6 @@
 pub fn e3() -> (i32, u128) {
     let start_time = Instant::now();
     let mut target: f64 = 600851475143.0_f64;
-    while target % 2.0 == 0.0 {
-        target /= 2.0;
-    }
     let mut i = 3.0;
     while i * i <= target {
         while target % i == 0.0 {
@@ -17,15 +14,13 @@ pub fn e3() -> (i32, u128) {
 */
 
 i64 target = 600851475143;
-while(target % i64(2) == 0){
-    target = target / 2;
-}
 i64 i = 3;
 while(i * i <= target){
     while(target % i == 0){
         target = target / i;
     }
-    i = i + 2;
+    i = i + i64(2);
 }
-print(target)
+print(target);
+
 
