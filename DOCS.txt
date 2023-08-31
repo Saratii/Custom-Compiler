@@ -65,3 +65,10 @@ a > b
 a >= b
 a < b
 a <= b
+
+TYPE CASTING
+Cast with type function calls
+i32(arg)
+i64(arg)
+f32(arg)
+f64(arg)
