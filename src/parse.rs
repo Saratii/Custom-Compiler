@@ -201,16 +201,17 @@ fn parse_next_statement(
     match next_token {
         Token::Print => {
             let literal = parse_expression(tokens, None, variable_type_map);
-            tokens.pop_front(); //eat ;
             return Statement::Print(literal);
         }
         Token::If => {
+            tokens.pop_front(); //eat (
             let condition = parse_expression(tokens, None, variable_type_map);
             tokens.pop_front(); //eat {
             let body = parse(tokens, &mut variable_type_map);
             tokens.pop_front(); //eat }
             let mut elifs = VecDeque::new();
             while tokens.len() > 0 && tokens[0] == Token::Elif {
+                tokens.pop_front(); //eat (
                 let elif_condition = parse_expression(tokens, None, variable_type_map);
                 tokens.pop_front(); //eat {
                 let elif_body = parse(tokens, &mut variable_type_map);
@@ -286,6 +287,7 @@ fn parse_next_statement(
             _ => panic!("found on variable name after TypeF64"),
         },
         Token::WhileLoop => {
+            tokens.pop_front(); //eat (
             let condition = parse_expression(tokens, None, variable_type_map);
             tokens.pop_front(); //eat {
             let block = parse(tokens, &mut variable_type_map);
@@ -341,7 +343,7 @@ fn parse_expression(
             Token::EndLine => return stack[0].clone(),
             Token::CloseParen => return stack[0].clone(),
             Token::OpenParen => {
-                return parse_expression(tokens, None, variable_type_map);
+                stack.push(parse_expression(tokens, None, variable_type_map));
             }
             Token::Increment => {
                 if tokens.len() > 0 {
@@ -375,7 +377,6 @@ fn parse_expression(
                                 None,
                                 variable_type_map,
                             ));
-                            tokens.pop_front(); //eat {
                             return Expression::FunctionCall(name, args);
                         }
                         Token::Comma => {
