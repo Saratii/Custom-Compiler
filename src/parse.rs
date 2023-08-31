@@ -203,36 +203,37 @@ fn parse_next_statement(
             return Statement::Print(literal);
         }
         Token::If => {
-            tokens.pop_front(); //eat (
+            eat_token(tokens, Token::OpenParen);
             let condition = parse_expression(tokens, None, variable_type_map);
-            tokens.pop_front(); //eat {
+            eat_token(tokens, Token::StartBlock);
             let body = parse(tokens, &mut variable_type_map);
-            tokens.pop_front(); //eat }
+            eat_token(tokens, Token::EndBlock);
             let mut elifs = VecDeque::new();
             while tokens.len() > 0 && tokens[0] == Token::Elif {
-                tokens.pop_front(); //eat (
+                eat_token(tokens, Token::Elif);
+                eat_token(tokens, Token::OpenParen);
                 let elif_condition = parse_expression(tokens, None, variable_type_map);
-                tokens.pop_front(); //eat {
+                eat_token(tokens, Token::StartBlock);
                 let elif_body = parse(tokens, &mut variable_type_map);
-                tokens.pop_front(); //eat }
+                eat_token(tokens, Token::EndBlock);
                 elifs.push_back(Statement::Elif(elif_condition, elif_body));
             }
             let mut else_body = None;
             if tokens.len() > 0 && tokens[0] == Token::Else {
-                tokens.pop_front(); //eat else
-                tokens.pop_front(); //eat {
+                eat_token(tokens, Token::Else);
+                eat_token(tokens, Token::StartBlock);
                 else_body = Some(parse(tokens, &mut variable_type_map));
-                tokens.pop_front(); //eat },
+                eat_token(tokens, Token::EndBlock);
             }
             return Statement::If(condition, body, elifs, else_body);
         }
         Token::ForLoop => {
-            tokens.pop_front(); //eat (
+            eat_token(tokens, Token::OpenParen);
             let variable = parse_next_statement(tokens, &mut variable_type_map);
             let condition = parse_expression(tokens, None, variable_type_map);
             let increment = parse_next_statement(tokens, &mut variable_type_map);
-            tokens.pop_front(); //eat )
-            tokens.pop_front(); //eat {
+            eat_token(tokens, Token::CloseParen);
+            eat_token(tokens, Token::StartBlock);
             let block = parse(tokens, &mut variable_type_map);
             return Statement::ForLoop(Box::new(variable), condition, Box::new(increment), block);
         }
@@ -286,11 +287,11 @@ fn parse_next_statement(
             _ => panic!("found on variable name after TypeF64"),
         },
         Token::WhileLoop => {
-            tokens.pop_front(); //eat (
+            eat_token(tokens, Token::OpenParen);
             let condition = parse_expression(tokens, None, variable_type_map);
-            tokens.pop_front(); //eat {
+            eat_token(tokens, Token::StartBlock);
             let block = parse(tokens, &mut variable_type_map);
-            tokens.pop_front(); //eat }
+            eat_token(tokens, Token::EndBlock);
             return Statement::WhileLoop(condition, block);
         }
         Token::VariableName(name) => {
@@ -457,6 +458,14 @@ fn stack_helper(stack: &mut Vec<Expression>, expression: Expression) {
         }
     }
 }
+
+fn eat_token(tokens: &mut VecDeque<Token>, expected: Token) {
+    if tokens.len() == 0 || tokens[0] != expected {
+        panic!("Tried to eat a {}, but found {:?}", expected, tokens);
+    }
+    tokens.pop_front();
+}
+
 #[cfg(test)]
 mod test {
     use super::{Statement, Type};
