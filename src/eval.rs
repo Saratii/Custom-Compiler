@@ -132,6 +132,26 @@ pub fn evaluate_line(
             }
             _ => panic!("compiler made an oopsie woopsie"),
         },
+        Statement::ModifyVariable(name,expression) => {
+            let literal = expression.evaluate(variables);
+            match variables.get_mut(name){
+                Some(tuple) => {
+                    let ty = match literal {
+                        Primitive::Bool(_) => Type::Bool,
+                        Primitive::I32(_) => Type::I32,
+                        Primitive::String(_) => Type::String,
+                        Primitive::F32(_) => Type::F32,
+                        Primitive::I64(_) => Type::I64,
+                        Primitive::F64(_) => Type::F64,
+                    };
+                    *tuple = (literal, ty);
+                }
+                None => {
+                    let error_message = format!("ST:NAME ERROR -> name: {} does not exist", name);
+                    panic!("{}", error_message.purple());
+                }
+            }
+        }
         Statement::ForLoop(define_variable, condition, increment, lines) => {
             evaluate_line(define_variable, variables, function_map);
             let mut evaluated_condition = condition.evaluate(variables);
@@ -152,7 +172,7 @@ pub fn evaluate_line(
                 _ => {}
             }
         }
-        _ => {}
+        _ => {panic!("compiler found unexpected statement {:?}", statement)}
     }
 }
 impl Complete {
@@ -173,6 +193,57 @@ impl Complete {
                 BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right),
                 BinaryOperator::Modulus => Primitive::I32(left % right),
                 BinaryOperator::NotEqual => Primitive::Bool(left != right),
+            },
+            (Primitive::F32(left), Primitive::F32(right)) => match self.operator {
+                BinaryOperator::Add => Primitive::F32(left + right),
+                BinaryOperator::Subtract => Primitive::F32(left - right),
+                BinaryOperator::Multiply => Primitive::F32(left * right),
+                BinaryOperator::Divide => Primitive::F32(left / right),
+                BinaryOperator::Equals => Primitive::Bool(left == right),
+                BinaryOperator::LessThan => Primitive::Bool(left < right),
+                BinaryOperator::LessThanOrEqualTo => Primitive::Bool(left <= right),
+                BinaryOperator::GreaterThan => Primitive::Bool(left > right),
+                BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right),
+                BinaryOperator::Modulus => Primitive::F32(left % right),
+                BinaryOperator::NotEqual => Primitive::Bool(left != right),
+            },
+            (Primitive::I64(left), Primitive::I64(right)) => match self.operator {
+                BinaryOperator::Add => Primitive::I64(left + right),
+                BinaryOperator::Subtract => Primitive::I64(left - right),
+                BinaryOperator::Multiply => Primitive::I64(left * right),
+                BinaryOperator::Divide => Primitive::I64(left / right),
+                BinaryOperator::Equals => Primitive::Bool(left == right),
+                BinaryOperator::LessThan => Primitive::Bool(left < right),
+                BinaryOperator::LessThanOrEqualTo => Primitive::Bool(left <= right),
+                BinaryOperator::GreaterThan => Primitive::Bool(left > right),
+                BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right),
+                BinaryOperator::Modulus => Primitive::I64(left % right),
+                BinaryOperator::NotEqual => Primitive::Bool(left != right),
+            },
+            (Primitive::F64(left), Primitive::F64(right)) => match self.operator {
+                BinaryOperator::Add => Primitive::F64(left + right),
+                BinaryOperator::Subtract => Primitive::F64(left - right),
+                BinaryOperator::Multiply => Primitive::F64(left * right),
+                BinaryOperator::Divide => Primitive::F64(left / right),
+                BinaryOperator::Equals => Primitive::Bool(left == right),
+                BinaryOperator::LessThan => Primitive::Bool(left < right),
+                BinaryOperator::LessThanOrEqualTo => Primitive::Bool(left <= right),
+                BinaryOperator::GreaterThan => Primitive::Bool(left > right),
+                BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right),
+                BinaryOperator::Modulus => Primitive::F64(left % right),
+                BinaryOperator::NotEqual => Primitive::Bool(left != right),
+            },
+            (Primitive::I64(left), Primitive::I32(right)) => match self.operator {
+                BinaryOperator::Equals => Primitive::Bool(left == right as i64),
+                BinaryOperator::LessThan => Primitive::Bool(left < right as i64),
+                BinaryOperator::LessThanOrEqualTo => Primitive::Bool(left <= right as i64),
+                BinaryOperator::GreaterThan => Primitive::Bool(left > right as i64),
+                BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right as i64),
+                BinaryOperator::NotEqual => Primitive::Bool(left != right as i64),
+                _ => {
+                    let error_message = format!("\nST:TYPE ERROR unsupported operator {:?} for types I64, I32\n", self.operator);
+                    panic!("{}", error_message.purple());
+                }
             },
             (a, b) => {
                 let error_message = format!("\nST:TYPE ERROR types {:?}, {:?}\n", a, b);
