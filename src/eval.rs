@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::parse::{BinaryOperator, Complete, Expression, Function, Statement, Type};
+use crate::parse::{BinaryOperator, Complete, Expression, Function, Statement, Type, CompleteU, UnaryOperator};
 use std::collections::{HashMap, VecDeque};
 #[derive(PartialEq, Debug, Clone)]
 pub enum Primitive {
@@ -175,6 +175,17 @@ pub fn evaluate_line(
         _ => {panic!("compiler found unexpected statement {:?}", statement)}
     }
 }
+impl CompleteU{
+    fn evaluate(&self, variables: &HashMap<String, (Primitive, Type)>) -> Primitive{
+        match (self.child.evaluate(variables), &self.operator){
+            (Primitive::Bool(value), UnaryOperator::Not) => Primitive::Bool(!value),
+            _ => {
+                let error_message = format!("ST: MISMATCHED-TYPES -> Operator {:?} is not defined for {:?}", self.operator, self.child);
+                panic!("{}", error_message.purple())
+            }
+        }
+    }
+}
 impl Complete {
     fn evaluate(&self, variables: &HashMap<String, (Primitive, Type)>) -> Primitive {
         match (
@@ -193,6 +204,10 @@ impl Complete {
                 BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right),
                 BinaryOperator::Modulus => Primitive::I32(left % right),
                 BinaryOperator::NotEqual => Primitive::Bool(left != right),
+                _ => {
+                    let error_message = format!("ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32", self.operator);
+                    panic!("{}", error_message.purple())
+                }
             },
             (Primitive::F32(left), Primitive::F32(right)) => match self.operator {
                 BinaryOperator::Add => Primitive::F32(left + right),
@@ -206,6 +221,10 @@ impl Complete {
                 BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right),
                 BinaryOperator::Modulus => Primitive::F32(left % right),
                 BinaryOperator::NotEqual => Primitive::Bool(left != right),
+                _ => {
+                    let error_message = format!("ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32", self.operator);
+                    panic!("{}", error_message.purple())
+                }
             },
             (Primitive::I64(left), Primitive::I64(right)) => match self.operator {
                 BinaryOperator::Add => Primitive::I64(left + right),
@@ -219,6 +238,10 @@ impl Complete {
                 BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right),
                 BinaryOperator::Modulus => Primitive::I64(left % right),
                 BinaryOperator::NotEqual => Primitive::Bool(left != right),
+                _ => {
+                    let error_message = format!("ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32", self.operator);
+                    panic!("{}", error_message.purple())
+                }
             },
             (Primitive::F64(left), Primitive::F64(right)) => match self.operator {
                 BinaryOperator::Add => Primitive::F64(left + right),
@@ -232,6 +255,10 @@ impl Complete {
                 BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right),
                 BinaryOperator::Modulus => Primitive::F64(left % right),
                 BinaryOperator::NotEqual => Primitive::Bool(left != right),
+                _ => {
+                    let error_message = format!("ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32", self.operator);
+                    panic!("{}", error_message.purple())
+                }
             },
             (Primitive::I64(left), Primitive::I32(right)) => match self.operator {
                 BinaryOperator::Equals => Primitive::Bool(left == right as i64),
@@ -241,13 +268,13 @@ impl Complete {
                 BinaryOperator::GreaterThanOrEqualTo => Primitive::Bool(left >= right as i64),
                 BinaryOperator::NotEqual => Primitive::Bool(left != right as i64),
                 _ => {
-                    let error_message = format!("\nST:TYPE ERROR unsupported operator {:?} for types I64, I32\n", self.operator);
-                    panic!("{}", error_message.purple());
+                    let error_message = format!("ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32", self.operator);
+                    panic!("{}", error_message.purple())
                 }
             },
             (a, b) => {
-                let error_message = format!("\nST:TYPE ERROR types {:?}, {:?}\n", a, b);
-                panic!("{}", error_message.purple());
+                let error_message = format!("ST: MISMATCHED-TYPES -> Operator {:?} is not defined for {} and {}", self.operator, a, b);
+                panic!("{}", error_message.purple())
             }
         }
     }
@@ -265,7 +292,7 @@ impl Expression {
                 }
             },
             Expression::Complete(complete) => complete.evaluate(variables),
-            Expression::BinaryOperator(_) => panic!("compiler done fucked up"),
+            Expression::CompleteU(complete_u) => complete_u.evaluate(variables),
             Expression::Increment => todo!(),
             Expression::Decrement => todo!(),
             Expression::I32(value) => Primitive::I32(*value),
@@ -311,8 +338,9 @@ impl Expression {
                     panic!("yawwwwww")
                 }
             },
-            // Expression::CompleteU(_) => panic!("eh"),
-            // Expression::IncompleteU(_) => panic!("compiler done fucked up"),
+            _ =>{
+                panic!("compiler did an oopsie");
+            }
         }
     }
 }

@@ -35,11 +35,11 @@ pub enum Expression {
     F64(f64),
     Complete(Complete),
     BinaryOperator(BinaryOperator),
+    UnaryOperator(UnaryOperator),
     Increment,
     Decrement,
     FunctionCall(String, Vec<Expression>),
-    // CompleteU(CompleteU),
-    // IncompleteU(IncompleteU),
+    CompleteU(CompleteU),
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum BinaryOperator {
@@ -54,12 +54,23 @@ pub enum BinaryOperator {
     LessThanOrEqualTo,
     GreaterThan,
     GreaterThanOrEqualTo,
+    And,
+    Or,
+}
+#[derive(PartialEq, Debug, Clone)]
+pub enum UnaryOperator{
+    Not,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub struct Complete {
     pub operator: BinaryOperator,
     pub left: Box<Expression>,
     pub right: Box<Expression>,
+}
+#[derive(PartialEq, Debug, Clone)]
+pub struct CompleteU{
+    pub operator: UnaryOperator,
+    pub child: Box<Expression>,
 }
 impl Expression {
     fn _get_precidence(&self) -> u8 {
@@ -90,6 +101,8 @@ impl BinaryOperator {
             BinaryOperator::GreaterThan => 0,
             BinaryOperator::GreaterThanOrEqualTo => 0,
             BinaryOperator::Modulus => 2,
+            BinaryOperator::And => 0,
+            BinaryOperator::Or => 0,
         }
     }
 }
@@ -111,6 +124,9 @@ impl From<&MathOp> for Expression {
             MathOp::GreaterThanOrEqualTo => {
                 Expression::BinaryOperator(BinaryOperator::GreaterThanOrEqualTo)
             }
+            MathOp::And => Expression::BinaryOperator(BinaryOperator::And),
+            MathOp::Or =>  Expression::BinaryOperator(BinaryOperator::Or),
+            MathOp::Not => Expression::UnaryOperator(UnaryOperator::Not),
         }
     }
 }
@@ -125,13 +141,14 @@ impl From<(&BinaryOperator, &Expression, &Expression)> for Complete {
         }
     }
 }
-// impl From<(&IncompleteU, &Expression)> for CompleteU {
-//     fn from((incomplete_u, exp): (&IncompleteU, &Expression)) -> CompleteU {
-//         match incomplete_u {
-//             IncompleteU::Parenthesis => CompleteU::Parenthesis(Box::new(exp.clone())),
-//         }
-//     }
-// }
+impl From<(&UnaryOperator, &Expression)> for CompleteU{
+    fn from((unary_operator, child): (&UnaryOperator, &Expression)) -> CompleteU{
+        CompleteU{
+            operator: unary_operator.clone(),
+            child: Box::new(child.clone()),
+        }
+    }
+}
 
 impl Complete {
     fn apply_precidence(self) -> Complete {
@@ -468,7 +485,7 @@ fn eat_token(tokens: &mut VecDeque<Token>, expected: Token) {
 
 #[cfg(test)]
 mod test {
-    use super::{Statement, Type};
+    use super::{Statement, Type, CompleteU, UnaryOperator};
     use crate::{
         parse::{parse_tokens, BinaryOperator, Complete, Expression},
         tokenize::{MathOp, Token},
@@ -1115,7 +1132,63 @@ mod test {
             Token::CloseParen,
         ]));
         let expected = vec![
-            Statement::Print(Expression::String("hold".to_string())),
+            Statement::Print(Expression::Complete(Complete {
+                operator: BinaryOperator::Add,
+                left: Box::new(Expression::I32(1)),
+                right: Box::new(Expression::Complete(Complete {
+                    operator: BinaryOperator::Multiply,
+                    left: Box::new(Expression::I32(2)),
+                    right: Box::new(Expression::I32(3)),
+                }))
+            })),
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn boolean_operators(){
+        let actual = parse_tokens(&mut VecDeque::from([
+            Token::Print,
+            Token::OpenParen,
+            Token::Boolean(false),
+            Token::MathOp(MathOp::And),
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::EndBlock,
+            Token::Print,
+            Token::OpenParen,
+            Token::Boolean(false),
+            Token::MathOp(MathOp::Or),
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::EndBlock,
+            Token::Print,
+            Token::OpenParen,
+            Token::MathOp(MathOp::Not),
+            Token::Boolean(false),
+            Token::MathOp(MathOp::And),
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::EndBlock,
+        ]));
+        let expected = vec![
+            Statement::Print(Expression::Complete(Complete {
+                operator: BinaryOperator::And,
+                left: Box::new(Expression::Bool(false)),
+                right: Box::new(Expression::Bool(true)) 
+            })),
+            Statement::Print(Expression::Complete(Complete {
+                operator: BinaryOperator::Or,
+                left: Box::new(Expression::Bool(false)),
+                right: Box::new(Expression::Bool(true)) 
+            })),
+            Statement::Print(Expression::Complete(Complete {
+                operator: BinaryOperator::And,
+                left: Box::new(Expression::CompleteU(CompleteU {
+                    operator: UnaryOperator::Not,
+                    child: Box::new(Expression::Bool(false))
+                })),
+                right: Box::new(Expression::Bool(true)) 
+            })),
         ];
         assert_eq!(actual, expected);
     }

@@ -9,7 +9,7 @@ fn main() {
     let mut tokens = tokenize::parse_to_tokens(code);
     // println!("tokens: {:?}", tokens);
     let lines = parse::parse_tokens(&mut tokens);
-    // println!("lines: {:?}", lines);
+    println!("lines: {:?}", lines);
 
     evaluate(lines);
 }

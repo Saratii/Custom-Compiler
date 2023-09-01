@@ -11,3 +11,4 @@ while(i * i <= target){
     i = i + i64(2);
 }
 print(target);*/
+print((3+2)*3);
