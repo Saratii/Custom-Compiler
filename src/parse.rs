@@ -200,38 +200,40 @@ fn parse_next_statement(
     match next_token {
         Token::Print => {
             let literal = parse_expression(tokens, None, variable_type_map);
-            tokens.pop_front(); //eat ;
             return Statement::Print(literal);
         }
         Token::If => {
+            eat_token(tokens, Token::OpenParen);
             let condition = parse_expression(tokens, None, variable_type_map);
-            tokens.pop_front(); //eat {
+            eat_token(tokens, Token::StartBlock);
             let body = parse(tokens, &mut variable_type_map);
-            tokens.pop_front(); //eat }
+            eat_token(tokens, Token::EndBlock);
             let mut elifs = VecDeque::new();
             while tokens.len() > 0 && tokens[0] == Token::Elif {
+                eat_token(tokens, Token::Elif);
+                eat_token(tokens, Token::OpenParen);
                 let elif_condition = parse_expression(tokens, None, variable_type_map);
-                tokens.pop_front(); //eat {
+                eat_token(tokens, Token::StartBlock);
                 let elif_body = parse(tokens, &mut variable_type_map);
-                tokens.pop_front(); //eat }
+                eat_token(tokens, Token::EndBlock);
                 elifs.push_back(Statement::Elif(elif_condition, elif_body));
             }
             let mut else_body = None;
             if tokens.len() > 0 && tokens[0] == Token::Else {
-                tokens.pop_front(); //eat else
-                tokens.pop_front(); //eat {
+                eat_token(tokens, Token::Else);
+                eat_token(tokens, Token::StartBlock);
                 else_body = Some(parse(tokens, &mut variable_type_map));
-                tokens.pop_front(); //eat },
+                eat_token(tokens, Token::EndBlock);
             }
             return Statement::If(condition, body, elifs, else_body);
         }
         Token::ForLoop => {
-            tokens.pop_front(); //eat (
+            eat_token(tokens, Token::OpenParen);
             let variable = parse_next_statement(tokens, &mut variable_type_map);
             let condition = parse_expression(tokens, None, variable_type_map);
             let increment = parse_next_statement(tokens, &mut variable_type_map);
-            tokens.pop_front(); //eat )
-            tokens.pop_front(); //eat {
+            eat_token(tokens, Token::CloseParen);
+            eat_token(tokens, Token::StartBlock);
             let block = parse(tokens, &mut variable_type_map);
             return Statement::ForLoop(Box::new(variable), condition, Box::new(increment), block);
         }
@@ -285,10 +287,11 @@ fn parse_next_statement(
             _ => panic!("found on variable name after TypeF64"),
         },
         Token::WhileLoop => {
+            eat_token(tokens, Token::OpenParen);
             let condition = parse_expression(tokens, None, variable_type_map);
-            tokens.pop_front(); //eat {
+            eat_token(tokens, Token::StartBlock);
             let block = parse(tokens, &mut variable_type_map);
-            tokens.pop_front(); //eat }
+            eat_token(tokens, Token::EndBlock);
             return Statement::WhileLoop(condition, block);
         }
         Token::VariableName(name) => {
@@ -324,10 +327,18 @@ fn parse_expression(
                     stack_helper(&mut stack, Expression::I32(value.parse::<i32>().unwrap()));
                 } else {
                     match expected_type.as_ref().unwrap() {
-                        Type::I32 => stack_helper(&mut stack, Expression::I32(value.parse::<i32>().unwrap())),
-                        Type::I64 => stack_helper(&mut stack, Expression::I64(value.parse::<i64>().unwrap())),
-                        Type::F32 => stack_helper(&mut stack, Expression::F32(value.parse::<f32>().unwrap())),
-                        Type::F64 => stack_helper(&mut stack, Expression::F64(value.parse::<f64>().unwrap())),
+                        Type::I32 => {
+                            stack_helper(&mut stack, Expression::I32(value.parse::<i32>().unwrap()))
+                        }
+                        Type::I64 => {
+                            stack_helper(&mut stack, Expression::I64(value.parse::<i64>().unwrap()))
+                        }
+                        Type::F32 => {
+                            stack_helper(&mut stack, Expression::F32(value.parse::<f32>().unwrap()))
+                        }
+                        Type::F64 => {
+                            stack_helper(&mut stack, Expression::F64(value.parse::<f64>().unwrap()))
+                        }
                         _ => {}
                     }
                 }
@@ -341,7 +352,7 @@ fn parse_expression(
             Token::EndLine => return stack[0].clone(),
             Token::CloseParen => return stack[0].clone(),
             Token::OpenParen => {
-                return parse_expression(tokens, None, variable_type_map);
+                stack.push(parse_expression(tokens, None, variable_type_map));
             }
             Token::Increment => {
                 if tokens.len() > 0 {
@@ -375,7 +386,10 @@ fn parse_expression(
                                 None,
                                 variable_type_map,
                             ));
-                            stack_helper(&mut stack, Expression::FunctionCall(name.clone(), args.clone()));
+                            stack_helper(
+                                &mut stack,
+                                Expression::FunctionCall(name.clone(), args.clone()),
+                            );
                             break;
                         }
                         Token::Comma => {
@@ -394,10 +408,7 @@ fn parse_expression(
     }
     stack[0].clone()
 }
-fn stack_helper(
-    stack: &mut Vec<Expression>,
-    expression: Expression,
-) {
+fn stack_helper(stack: &mut Vec<Expression>, expression: Expression) {
     let mut right;
     match expression {
         Expression::Bool(value) => {
@@ -421,10 +432,8 @@ fn stack_helper(
         Expression::F64(value) => {
             right = Expression::F64(value);
         }
-        Expression::FunctionCall(name, args) => {
-            right = Expression::FunctionCall(name, args)
-        }
-        _ => panic!("compiler found wrong expression type in stack helper")
+        Expression::FunctionCall(name, args) => right = Expression::FunctionCall(name, args),
+        _ => panic!("compiler found wrong expression type in stack helper"),
     }
     loop {
         if stack.len() > 1 {
@@ -449,6 +458,14 @@ fn stack_helper(
         }
     }
 }
+
+fn eat_token(tokens: &mut VecDeque<Token>, expected: Token) {
+    if tokens.len() == 0 || tokens[0] != expected {
+        panic!("Tried to eat a {}, but found {:?}", expected, tokens);
+    }
+    tokens.pop_front();
+}
+
 #[cfg(test)]
 mod test {
     use super::{Statement, Type};
@@ -1057,7 +1074,7 @@ mod test {
         assert_eq!(actual, expected);
     }
     #[test]
-    fn statement_after_loop(){
+    fn statement_after_loop() {
         let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeI64,
             Token::VariableName("i".to_string()),
