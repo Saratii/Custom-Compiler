@@ -1082,4 +1082,24 @@ mod test {
         ];
         assert_eq!(actual, expected);
     }
+    #[test]
+    fn complex_print_1(){
+        //print((1+2)*3);
+        let actual = parse_tokens(&mut VecDeque::from([
+            Token::Print,
+            Token::OpenParen,
+            Token::OpenParen,
+            Token::ConstantNumber("1".to_string()),
+            Token::MathOp(MathOp::Add),
+            Token::ConstantNumber("2".to_string()),
+            Token::CloseParen,
+            Token::MathOp(MathOp::Multiply),
+            Token::ConstantNumber("3".to_string()),
+            Token::CloseParen,
+        ]));
+        let expected = vec![
+            Statement::Print(Expression::String("hold".to_string())),
+        ];
+        assert_eq!(actual, expected);
+    }
 }

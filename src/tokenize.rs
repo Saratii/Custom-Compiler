@@ -80,6 +80,9 @@ pub enum MathOp {
     GreaterThan,
     LessThanOrEqualTo,
     GreaterThanOrEqualTo,
+    And,
+    Or,
+    Not,
 }
 
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
@@ -113,9 +116,12 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
         ("<", Token::MathOp(MathOp::LessThan)),
         (">=", Token::MathOp(MathOp::GreaterThanOrEqualTo)),
         ("<=", Token::MathOp(MathOp::LessThanOrEqualTo)),
+        ("&&", Token::MathOp(MathOp::And)),
+        ("||", Token::MathOp(MathOp::Or)),
         (",", Token::Comma),
         ("==", Token::MathOp(MathOp::Equals)),
         ("!=", Token::MathOp(MathOp::NotEqual)),
+        ("!", Token::MathOp(MathOp::Not)),
         ("True", Token::Boolean(true)),
         ("False", Token::Boolean(false)),
         (";", Token::EndLine),
