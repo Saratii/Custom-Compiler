@@ -15,6 +15,12 @@ pub enum Token {
     TypeF64,
     TypeString,
     TypeBool,
+    TypeI32Array,
+    TypeI64Array,
+    TypeF32Array,
+    TypeF64Array,
+    TypeStringArray,
+    TypeBoolArray,
     VariableName(String),
     ConstantNumber(String),
     Boolean(bool),
@@ -30,6 +36,8 @@ pub enum Token {
     Elif,
     FunctionCall(String),
     Ignore,
+    OpenBracket,
+    CloseBracket,
 }
 
 impl Display for Token {
@@ -61,6 +69,14 @@ impl Display for Token {
             Token::Elif => write!(f, "Elif"),
             Token::FunctionCall(name) => write!(f, "Function: {name}"),
             Token::Ignore => write!(f, "Ignore"),
+            Token::TypeI32Array => write!(f, "TypeI32Array"),
+            Token::TypeI64Array => write!(f, "TypeI64Array"),
+            Token::TypeF32Array => write!(f, "TypeF32Array"),
+            Token::TypeF64Array => write!(f, "TypeF64Array"),
+            Token::TypeStringArray => write!(f, "TypeStringArray"),
+            Token::TypeBoolArray => write!(f, "TypeBoolArray"),
+            Token::OpenBracket => write!(f, "OpenBracket"),
+            Token::CloseBracket => write!(f, "CloseBracket"),
         }
     }
 }
@@ -97,6 +113,12 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
         ("i64(", Token::FunctionCall("i64()".to_string())),
         ("f32(", Token::FunctionCall("f32()".to_string())),
         ("f64(", Token::FunctionCall("f64()".to_string())),
+        ("String[]", Token::TypeStringArray),
+        ("i32[]", Token::TypeI32Array),
+        ("i64[]", Token::TypeI64Array),
+        ("f32[]", Token::TypeF32Array),
+        ("f64[]", Token::TypeF64Array),
+        ("Bool[]", Token::TypeBoolArray),
         ("String", Token::TypeString),
         ("i32", Token::TypeI32),
         ("i64", Token::TypeI64),
@@ -129,6 +151,8 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
         ("else", Token::Else),
         ("elif", Token::Elif),
         ("=", Token::Ignore),
+        ("[", Token::OpenBracket),
+        ("]", Token::CloseBracket),
     ]);
     let mut inputs = remove_comments_regex.replace_all(raw, "").to_string();
     inputs = remove_spaces(&inputs);
@@ -595,6 +619,24 @@ while (true){
             Token::TypeF64,
             Token::VariableName("g".to_string()),
             Token::ConstantNumber("64".to_string()),
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn one_dim_array() {
+        let actual = parse_to_tokens("i32[] = [];i64[]=[100, 200];");
+        let expected = vec![
+            Token::TypeI32Array,
+            Token::OpenBracket,
+            Token::CloseBracket,
+            Token::EndLine,
+            Token::TypeI64Array,
+            Token::OpenBracket,
+            Token::ConstantNumber("100".to_string()),
+            Token::Comma,
+            Token::ConstantNumber("200".to_string()),
+            Token::CloseBracket,
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
