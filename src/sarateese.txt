@@ -1,4 +1,4 @@
-/*i64 target = 600851475143;
+i64 target = 600851475143;
 while(target % i64(2) == 0){
     target = target / 2;
 }
@@ -10,5 +10,3 @@ while(i * i <= target){
     i = i + 2;
     i = i + i64(2);
 }
-print(target);*/
-print((3+2)*3);

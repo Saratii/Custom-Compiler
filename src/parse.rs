@@ -58,8 +58,9 @@ pub enum BinaryOperator {
     Or,
 }
 #[derive(PartialEq, Debug, Clone)]
-pub enum UnaryOperator{
+pub enum UnaryOperator {
     Not,
+    Parenthesis,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub struct Complete {
@@ -68,7 +69,7 @@ pub struct Complete {
     pub right: Box<Expression>,
 }
 #[derive(PartialEq, Debug, Clone)]
-pub struct CompleteU{
+pub struct CompleteU {
     pub operator: UnaryOperator,
     pub child: Box<Expression>,
 }
@@ -125,7 +126,7 @@ impl From<&MathOp> for Expression {
                 Expression::BinaryOperator(BinaryOperator::GreaterThanOrEqualTo)
             }
             MathOp::And => Expression::BinaryOperator(BinaryOperator::And),
-            MathOp::Or =>  Expression::BinaryOperator(BinaryOperator::Or),
+            MathOp::Or => Expression::BinaryOperator(BinaryOperator::Or),
             MathOp::Not => Expression::UnaryOperator(UnaryOperator::Not),
         }
     }
@@ -141,9 +142,9 @@ impl From<(&BinaryOperator, &Expression, &Expression)> for Complete {
         }
     }
 }
-impl From<(&UnaryOperator, &Expression)> for CompleteU{
-    fn from((unary_operator, child): (&UnaryOperator, &Expression)) -> CompleteU{
-        CompleteU{
+impl From<(&UnaryOperator, &Expression)> for CompleteU {
+    fn from((unary_operator, child): (&UnaryOperator, &Expression)) -> CompleteU {
+        CompleteU {
             operator: unary_operator.clone(),
             child: Box::new(child.clone()),
         }
@@ -216,7 +217,9 @@ fn parse_next_statement(
     let next_token = tokens.pop_front().unwrap();
     match next_token {
         Token::Print => {
+            eat_token(tokens, Token::OpenParen);
             let literal = parse_expression(tokens, None, variable_type_map);
+            eat_token(tokens, Token::EndLine);
             return Statement::Print(literal);
         }
         Token::If => {
@@ -345,16 +348,28 @@ fn parse_expression(
                 } else {
                     match expected_type.as_ref().unwrap() {
                         Type::I32 => {
-                            stack_helper(&mut stack, Expression::I32(value.parse::<i32>().unwrap()))
+                            stack_helper(
+                                &mut stack,
+                                Expression::I32(value.parse::<i32>().unwrap()),
+                            );
                         }
                         Type::I64 => {
-                            stack_helper(&mut stack, Expression::I64(value.parse::<i64>().unwrap()))
+                            stack_helper(
+                                &mut stack,
+                                Expression::I64(value.parse::<i64>().unwrap()),
+                            );
                         }
                         Type::F32 => {
-                            stack_helper(&mut stack, Expression::F32(value.parse::<f32>().unwrap()))
+                            stack_helper(
+                                &mut stack,
+                                Expression::F32(value.parse::<f32>().unwrap()),
+                            );
                         }
                         Type::F64 => {
-                            stack_helper(&mut stack, Expression::F64(value.parse::<f64>().unwrap()))
+                            stack_helper(
+                                &mut stack,
+                                Expression::F64(value.parse::<f64>().unwrap()),
+                            );
                         }
                         _ => {}
                     }
@@ -368,8 +383,15 @@ fn parse_expression(
             }
             Token::EndLine => return stack[0].clone(),
             Token::CloseParen => return stack[0].clone(),
+
             Token::OpenParen => {
-                stack.push(parse_expression(tokens, None, variable_type_map));
+                stack_helper(
+                    &mut stack,
+                    Expression::CompleteU(CompleteU {
+                        operator: UnaryOperator::Parenthesis,
+                        child: Box::new(parse_expression(tokens, None, variable_type_map)),
+                    }),
+                );
             }
             Token::Increment => {
                 if tokens.len() > 0 {
@@ -426,44 +448,30 @@ fn parse_expression(
     stack[0].clone()
 }
 fn stack_helper(stack: &mut Vec<Expression>, expression: Expression) {
-    let mut right;
-    match expression {
-        Expression::Bool(value) => {
-            right = Expression::Bool(value);
-        }
-        Expression::I32(value) => {
-            right = Expression::I32(value);
-        }
-        Expression::String(value) => {
-            right = Expression::String(value);
-        }
-        Expression::Variable(name) => {
-            right = Expression::Variable(name);
-        }
-        Expression::I64(value) => {
-            right = Expression::I64(value);
-        }
-        Expression::F32(value) => {
-            right = Expression::F32(value);
-        }
-        Expression::F64(value) => {
-            right = Expression::F64(value);
-        }
-        Expression::FunctionCall(name, args) => right = Expression::FunctionCall(name, args),
-        _ => panic!("compiler found wrong expression type in stack helper"),
-    }
+    let mut right = expression;
     loop {
-        if stack.len() > 1 {
+        if stack.len() > 0 {
             let operator = stack.pop().unwrap();
-            let left = stack.pop().unwrap();
             match operator {
                 Expression::BinaryOperator(binary_operator) => {
-                    right = Expression::Complete(
-                        Complete::from((&binary_operator, &left, &right)).apply_precidence(),
-                    );
+                    if stack.len() > 0 {
+                        let left = stack.pop().unwrap();
+                        right = Expression::Complete(
+                            Complete::from((&binary_operator, &left, &right)).apply_precidence(),
+                        );
+                    } else {
+                        stack.push(Expression::BinaryOperator(binary_operator));
+                        stack.push(right);
+                        break;
+                    }
+                }
+                Expression::UnaryOperator(unary_operator) => {
+                    right = Expression::CompleteU(CompleteU {
+                        operator: unary_operator,
+                        child: Box::new(right),
+                    })
                 }
                 _ => {
-                    stack.push(left);
                     stack.push(operator);
                     stack.push(right);
                     break;
@@ -485,12 +493,12 @@ fn eat_token(tokens: &mut VecDeque<Token>, expected: Token) {
 
 #[cfg(test)]
 mod test {
-    use super::{Statement, Type, CompleteU, UnaryOperator};
+    use super::{parse_expression, CompleteU, Statement, Type, UnaryOperator};
     use crate::{
         parse::{parse_tokens, BinaryOperator, Complete, Expression},
         tokenize::{MathOp, Token},
     };
-    use std::collections::VecDeque;
+    use std::collections::{HashMap, VecDeque};
     #[test]
     fn hello_world() {
         let actual = parse_tokens(&mut VecDeque::from([
@@ -1117,7 +1125,59 @@ mod test {
         assert_eq!(actual, expected);
     }
     #[test]
-    fn complex_print_1(){
+    fn order_of_ops_parenthesis_1() {
+        let mut tokens = VecDeque::from([
+            Token::OpenParen,
+            Token::ConstantNumber("1".to_string()),
+            Token::MathOp(MathOp::Add),
+            Token::ConstantNumber("2".to_string()),
+            Token::CloseParen,
+            Token::MathOp(MathOp::Multiply),
+            Token::ConstantNumber("3".to_string()),
+        ]);
+        let actual = parse_expression(&mut tokens, Some(Type::I32), &mut HashMap::new());
+        let expected = Expression::Complete(Complete {
+            operator: BinaryOperator::Multiply,
+            left: Box::new(Expression::CompleteU(CompleteU {
+                operator: UnaryOperator::Parenthesis,
+                child: Box::new(Expression::Complete(Complete {
+                    operator: BinaryOperator::Add,
+                    left: Box::new(Expression::I32(1)),
+                    right: Box::new(Expression::I32(2)),
+                })),
+            })),
+            right: Box::new(Expression::I32(3)),
+        });
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn order_of_ops_parenthesis_2() {
+        let mut tokens = VecDeque::from([
+            Token::ConstantNumber("3".to_string()),
+            Token::MathOp(MathOp::Multiply),
+            Token::OpenParen,
+            Token::ConstantNumber("2".to_string()),
+            Token::MathOp(MathOp::Add),
+            Token::ConstantNumber("6".to_string()),
+            Token::CloseParen,
+        ]);
+        let actual = parse_expression(&mut tokens, Some(Type::I32), &mut HashMap::new());
+        let expected = Expression::Complete(Complete {
+            operator: BinaryOperator::Multiply,
+            left: Box::new(Expression::I32(3)),
+            right: Box::new(Expression::CompleteU(CompleteU {
+                operator: UnaryOperator::Parenthesis,
+                child: Box::new(Expression::Complete(Complete {
+                    operator: BinaryOperator::Add,
+                    left: Box::new(Expression::I32(2)),
+                    right: Box::new(Expression::I32(6)),
+                })),
+            })),
+        });
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn complex_print_1() {
         //print((1+2)*3);
         let actual = parse_tokens(&mut VecDeque::from([
             Token::Print,
@@ -1130,22 +1190,24 @@ mod test {
             Token::MathOp(MathOp::Multiply),
             Token::ConstantNumber("3".to_string()),
             Token::CloseParen,
+            Token::EndLine,
         ]));
-        let expected = vec![
-            Statement::Print(Expression::Complete(Complete {
-                operator: BinaryOperator::Add,
-                left: Box::new(Expression::I32(1)),
-                right: Box::new(Expression::Complete(Complete {
-                    operator: BinaryOperator::Multiply,
-                    left: Box::new(Expression::I32(2)),
-                    right: Box::new(Expression::I32(3)),
-                }))
+        let expected = vec![Statement::Print(Expression::Complete(Complete {
+            operator: BinaryOperator::Multiply,
+            left: Box::new(Expression::CompleteU(CompleteU {
+                operator: UnaryOperator::Parenthesis,
+                child: Box::new(Expression::Complete(Complete {
+                    operator: BinaryOperator::Add,
+                    left: Box::new(Expression::I32(1)),
+                    right: Box::new(Expression::I32(2)),
+                })),
             })),
-        ];
+            right: Box::new(Expression::I32(3)),
+        }))];
         assert_eq!(actual, expected);
     }
     #[test]
-    fn boolean_operators(){
+    fn boolean_operators() {
         let actual = parse_tokens(&mut VecDeque::from([
             Token::Print,
             Token::OpenParen,
@@ -1153,14 +1215,14 @@ mod test {
             Token::MathOp(MathOp::And),
             Token::Boolean(true),
             Token::CloseParen,
-            Token::EndBlock,
+            Token::EndLine,
             Token::Print,
             Token::OpenParen,
             Token::Boolean(false),
             Token::MathOp(MathOp::Or),
             Token::Boolean(true),
             Token::CloseParen,
-            Token::EndBlock,
+            Token::EndLine,
             Token::Print,
             Token::OpenParen,
             Token::MathOp(MathOp::Not),
@@ -1168,26 +1230,26 @@ mod test {
             Token::MathOp(MathOp::And),
             Token::Boolean(true),
             Token::CloseParen,
-            Token::EndBlock,
+            Token::EndLine,
         ]));
         let expected = vec![
             Statement::Print(Expression::Complete(Complete {
                 operator: BinaryOperator::And,
                 left: Box::new(Expression::Bool(false)),
-                right: Box::new(Expression::Bool(true)) 
+                right: Box::new(Expression::Bool(true)),
             })),
             Statement::Print(Expression::Complete(Complete {
                 operator: BinaryOperator::Or,
                 left: Box::new(Expression::Bool(false)),
-                right: Box::new(Expression::Bool(true)) 
+                right: Box::new(Expression::Bool(true)),
             })),
             Statement::Print(Expression::Complete(Complete {
                 operator: BinaryOperator::And,
                 left: Box::new(Expression::CompleteU(CompleteU {
                     operator: UnaryOperator::Not,
-                    child: Box::new(Expression::Bool(false))
+                    child: Box::new(Expression::Bool(false)),
                 })),
-                right: Box::new(Expression::Bool(true)) 
+                right: Box::new(Expression::Bool(true)),
             })),
         ];
         assert_eq!(actual, expected);
