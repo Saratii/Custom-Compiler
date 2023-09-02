@@ -33,6 +33,7 @@ pub enum Expression {
     I64(i64),
     F32(f32),
     F64(f64),
+    Array(Vec<Expression>),
     Complete(Complete),
     BinaryOperator(BinaryOperator),
     UnaryOperator(UnaryOperator),
@@ -268,7 +269,7 @@ fn parse_next_statement(
                 variable_type_map.insert(name.clone(), Type::Bool);
                 return Statement::DefineVariable(name, expression, Type::Bool);
             }
-            _ => panic!("found on variable name after TypeBool"),
+            _ => panic!("found non variable name after TypeBool"),
         },
         Token::TypeString => match tokens.pop_front().unwrap() {
             Token::VariableName(name) => {
@@ -311,6 +312,12 @@ fn parse_next_statement(
             }
             _ => panic!("found on variable name after TypeF64"),
         },
+        Token::TypeBoolArray => parse_array(tokens, Type::Bool, variable_type_map),
+        Token::TypeStringArray => parse_array(tokens, Type::String, variable_type_map),
+        Token::TypeI32Array => parse_array(tokens, Type::I32, variable_type_map),
+        Token::TypeI64Array => parse_array(tokens, Type::I64, variable_type_map),
+        Token::TypeF64Array => parse_array(tokens, Type::F64, variable_type_map),
+        Token::TypeF32Array => parse_array(tokens, Type::F32, variable_type_map),
         Token::WhileLoop => {
             eat_token(tokens, Token::OpenParen);
             let condition = parse_expression(tokens, None, variable_type_map);
@@ -388,6 +395,8 @@ fn parse_expression(
             }
             Token::EndLine => return stack[0].clone(),
             Token::CloseParen => return stack[0].clone(),
+            Token::Comma => return stack[0].clone(),
+            Token::CloseBracket => return stack[0].clone(),
 
             Token::OpenParen => {
                 stack_helper(
@@ -495,7 +504,49 @@ fn eat_token(tokens: &mut VecDeque<Token>, expected: Token) {
     }
     tokens.pop_front();
 }
-
+fn parse_array(
+    tokens: &mut VecDeque<Token>,
+    array_type: Type,
+    variable_type_map: &mut HashMap<String, Type>,
+) -> Statement {
+    match tokens.pop_front().unwrap() {
+        Token::VariableName(name) => {
+            let mut array = Vec::new();
+            eat_token(tokens, Token::OpenBracket);
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::EndLine => {
+                        return Statement::DefineVariable(
+                            name,
+                            Expression::Array(array),
+                            array_type,
+                        );
+                    }
+                    Token::CloseBracket => {
+                        eat_token(tokens, Token::EndLine);
+                        return Statement::DefineVariable(
+                            name,
+                            Expression::Array(array),
+                            array_type,
+                        );
+                    }
+                    _ => {
+                        tokens.push_front(next_token);
+                        println!("{:?}", tokens);
+                        array.push(parse_expression(
+                            tokens,
+                            Some(array_type),
+                            variable_type_map,
+                        ));
+                        println!("{:?}", tokens);
+                    }
+                }
+            }
+        }
+        _ => panic!("found non variable name after {:?}", array_type),
+    }
+}
 #[cfg(test)]
 mod test {
     use super::{parse_expression, CompleteU, Statement, Type, UnaryOperator};
@@ -1286,6 +1337,41 @@ mod test {
                 })],
             ),
         ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn one_dim_array() {
+        let actual = parse_tokens(&mut VecDeque::from([
+            Token::TypeF32Array,
+            Token::VariableName("a".to_string()),
+            Token::OpenBracket,
+            Token::ConstantNumber("69".to_string()),
+            Token::Comma,
+            Token::ConstantNumber("420".to_string()),
+            Token::CloseBracket,
+            Token::EndLine,
+        ]));
+        let expected = vec![Statement::DefineVariable(
+            "a".to_string(),
+            Expression::Array(vec![Expression::F32(69.0), Expression::F32(420.0)]),
+            Type::F32,
+        )];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn empty_one_dim_array() {
+        let actual = parse_tokens(&mut VecDeque::from([
+            Token::TypeStringArray,
+            Token::VariableName("a".to_string()),
+            Token::OpenBracket,
+            Token::CloseBracket,
+            Token::EndLine,
+        ]));
+        let expected = vec![Statement::DefineVariable(
+            "a".to_string(),
+            Expression::Array(vec![]),
+            Type::String,
+        )];
         assert_eq!(actual, expected);
     }
 }

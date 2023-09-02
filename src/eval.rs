@@ -12,6 +12,7 @@ pub enum Primitive {
     I64(i64),
     F64(f64),
     Bool(bool),
+    Array(Vec<Primitive>),
 }
 impl std::fmt::Display for Primitive {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -22,6 +23,24 @@ impl std::fmt::Display for Primitive {
             Primitive::I64(value) => write!(f, "{}", value),
             Primitive::F64(value) => write!(f, "{}", value),
             Primitive::Bool(value) => write!(f, "{}", value),
+            Primitive::Array(primitives) => {
+                let mut string = "[".to_string();
+                for prim in primitives {
+                    match prim {
+                        Primitive::String(literal) => string = string + literal,
+                        Primitive::I32(literal) => string = string + &literal.to_string() + ", ",
+                        Primitive::F32(literal) => string = string + &literal.to_string() + ", ",
+                        Primitive::I64(literal) => string = string + &literal.to_string() + ", ",
+                        Primitive::F64(literal) => string = string + &literal.to_string() + ", ",
+                        Primitive::Bool(literal) => string = string + &literal.to_string() + ", ",
+                        _ => {}
+                    }
+                }
+                string.pop();
+                string.pop();
+                string.push(']');
+                write!(f, "{}", string)
+            }
         }
     }
 }
@@ -111,6 +130,7 @@ pub fn evaluate_line(
                         Primitive::F32(_) => Type::F32,
                         Primitive::I64(_) => Type::I64,
                         Primitive::F64(_) => Type::F64,
+                        Primitive::Array(_) => todo!(),
                     };
                     *tuple = (literal, ty);
                 }
@@ -289,6 +309,13 @@ impl Complete {
 impl Expression {
     fn evaluate(&self, variables: &HashMap<String, (Primitive, Type)>) -> Primitive {
         match self {
+            Expression::Array(value) => {
+                let mut array = Vec::new();
+                for exp in value {
+                    array.push(exp.evaluate(variables))
+                }
+                return Primitive::Array(array);
+            }
             Expression::String(value) => Primitive::String(value.clone()),
             Expression::Bool(value) => Primitive::Bool(*value),
             Expression::Variable(name) => match variables.get(name) {

@@ -625,13 +625,15 @@ while (true){
     }
     #[test]
     fn one_dim_array() {
-        let actual = parse_to_tokens("i32[] = [];i64[]=[100, 200];");
+        let actual = parse_to_tokens("i32[] a = [];i64[]b=[100, 200];");
         let expected = vec![
             Token::TypeI32Array,
+            Token::VariableName("a".to_string()),
             Token::OpenBracket,
             Token::CloseBracket,
             Token::EndLine,
             Token::TypeI64Array,
+            Token::VariableName("b".to_string()),
             Token::OpenBracket,
             Token::ConstantNumber("100".to_string()),
             Token::Comma,
