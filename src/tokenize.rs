@@ -239,7 +239,7 @@ mod test {
     }
     #[test]
     fn bool_variable_test() {
-        let actual = parse_to_tokens("Bool feefoo = False;");
+        let actual = parse_to_tokens("Bool feefoo = false;");
         let expected = vec![
             Token::TypeBool,
             Token::VariableName("feefoo".to_string()),
@@ -261,7 +261,7 @@ mod test {
     }
     #[test]
     fn print_variable_test() {
-        let actual = parse_to_tokens("Bool eee = True;\nprint(eee);");
+        let actual = parse_to_tokens("Bool eee = true;\nprint(eee);");
         let expected = vec![
             Token::TypeBool,
             Token::VariableName("eee".to_string()),
@@ -291,7 +291,7 @@ mod test {
     }
     #[test]
     fn while_true() {
-        let actual = parse_to_tokens("while (True){\nprint(69);\n}");
+        let actual = parse_to_tokens("while (true){\nprint(69);\n}");
         let expected = vec![
             Token::WhileLoop,
             Token::OpenParen,
@@ -311,7 +311,7 @@ mod test {
         let actual = parse_to_tokens(
             "
 i32 e = 69;
-while (True){
+while (true){
     print(e);
 }",
         );
@@ -335,7 +335,7 @@ while (True){
     }
     #[test]
     fn change_variable() {
-        let actual = parse_to_tokens("i32 i = 0;\ni = 1;\nString e = \"hello\";\ne = \"bye\";\nBool yes = True;\nyes = False;");
+        let actual = parse_to_tokens("i32 i = 0;\ni = 1;\nString e = \"hello\";\ne = \"bye\";\nBool yes = true;\nyes = false;");
         let expected = vec![
             Token::TypeI32,
             Token::VariableName("i".to_string()),
@@ -495,7 +495,7 @@ while (True){
     }
     #[test]
     fn double_if() {
-        let actual = parse_to_tokens("if(True){if(False){print(\"a\");}}");
+        let actual = parse_to_tokens("if(true){if(false){print(\"a\");}}");
         let expected = vec![
             Token::If,
             Token::OpenParen,

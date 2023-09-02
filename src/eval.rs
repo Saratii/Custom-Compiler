@@ -27,50 +27,7 @@ impl std::fmt::Display for Primitive {
 }
 pub fn evaluate(lines: VecDeque<Statement>) {
     let mut variables = HashMap::new();
-    let function_map = HashMap::from([
-        (
-            "i32()".to_string(),
-            Function {
-                name: "i32()".to_string(),
-                block: VecDeque::new(),
-            },
-        ),
-        (
-            "f32()".to_string(),
-            Function {
-                name: "f32()".to_string(),
-                block: VecDeque::new(),
-            },
-        ),
-        (
-            "i64()".to_string(),
-            Function {
-                name: "i64()".to_string(),
-                block: VecDeque::new(),
-            },
-        ),
-        (
-            "f64()".to_string(),
-            Function {
-                name: "f64()".to_string(),
-                block: VecDeque::new(),
-            },
-        ),
-        (
-            "string()".to_string(),
-            Function {
-                name: "string()".to_string(),
-                block: VecDeque::new(),
-            },
-        ),
-        (
-            "print()".to_string(),
-            Function {
-                name: "print()".to_string(),
-                block: VecDeque::new(),
-            },
-        ),
-    ]);
+    let function_map = HashMap::new();
     for i in 0..lines.len() {
         evaluate_line(&lines[i as usize], &mut variables, &function_map);
     }
