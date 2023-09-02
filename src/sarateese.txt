@@ -10,3 +10,5 @@ while(i * i <= target){
     i = i + 2;
     i = i + i64(2);
 }
+print(target);
+print((false || true) &&  true);

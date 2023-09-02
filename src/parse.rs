@@ -4,7 +4,6 @@ use std::collections::{HashMap, VecDeque};
 use crate::tokenize::{MathOp, Token};
 #[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
-    Print(Expression),
     DefineVariable(String, Expression, Type),
     WhileLoop(Expression, VecDeque<Statement>),
     If(
@@ -22,6 +21,7 @@ pub enum Statement {
     ),
     ModifyVariable(String, Expression),
     _DefineFunction(String, Vec<Type>, VecDeque<Statement>),
+    FunctionCall(String, Vec<Expression>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -150,7 +150,6 @@ impl From<(&UnaryOperator, &Expression)> for CompleteU {
         }
     }
 }
-
 impl Complete {
     fn apply_precidence(self) -> Complete {
         match *self.left {
@@ -196,7 +195,6 @@ pub enum Type {
 }
 pub fn parse_tokens(tokens: &mut VecDeque<Token>) -> VecDeque<Statement> {
     let mut variable_type_map = HashMap::new();
-
     return parse(tokens, &mut variable_type_map);
 }
 fn parse(
@@ -216,11 +214,18 @@ fn parse_next_statement(
 ) -> Statement {
     let next_token = tokens.pop_front().unwrap();
     match next_token {
-        Token::Print => {
-            eat_token(tokens, Token::OpenParen);
-            let literal = parse_expression(tokens, None, variable_type_map);
-            eat_token(tokens, Token::EndLine);
-            return Statement::Print(literal);
+        Token::FunctionCall(name) => {
+            let mut args = Vec::new();
+            loop {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
+                    Token::EndLine => return Statement::FunctionCall(name, args),
+                    _ => {
+                        tokens.push_front(next_token);
+                        args.push(parse_expression(tokens, None, variable_type_map))
+                    }
+                }
+            }
         }
         Token::If => {
             eat_token(tokens, Token::OpenParen);
@@ -502,15 +507,15 @@ mod test {
     #[test]
     fn hello_world() {
         let actual = parse_tokens(&mut VecDeque::from([
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::String("hello world".to_string()),
             Token::CloseParen,
             Token::EndLine,
         ]));
-        let expected = vec![Statement::Print(Expression::String(
-            "hello world".to_string(),
-        ))];
+        let expected = vec![Statement::FunctionCall(
+            "print()".to_string(),
+            vec![Expression::String("hello world".to_string())],
+        )];
         assert_eq!(actual, expected);
     }
     #[test]
@@ -535,15 +540,17 @@ mod test {
             Token::VariableName("eee".to_string()),
             Token::Boolean(true),
             Token::EndLine,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("eee".to_string()),
             Token::CloseParen,
             Token::EndLine,
         ]));
         let expected = vec![
             Statement::DefineVariable("eee".to_string(), Expression::Bool(true), Type::Bool),
-            Statement::Print(Expression::Variable("eee".to_string())),
+            Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::Variable("eee".to_string())],
+            ),
         ];
         assert_eq!(actual, expected);
     }
@@ -554,8 +561,7 @@ mod test {
             Token::VariableName("ee".to_string()),
             Token::String("should I kill myself?".to_string()),
             Token::EndLine,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("ee".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -566,7 +572,10 @@ mod test {
                 Expression::String("should I kill myself?".to_string()),
                 Type::String,
             ),
-            Statement::Print(Expression::Variable("ee".to_string())),
+            Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::Variable("ee".to_string())],
+            ),
         ];
         assert_eq!(actual, expected);
     }
@@ -578,8 +587,7 @@ mod test {
             Token::Boolean(true),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::String("69".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -587,7 +595,10 @@ mod test {
         ]));
         let expected = vec![Statement::WhileLoop(
             Expression::Bool(true),
-            VecDeque::from([Statement::Print(Expression::String("69".to_string()))]),
+            VecDeque::from([Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::String("69".to_string())],
+            )]),
         )];
         assert_eq!(actual, expected);
     }
@@ -699,19 +710,21 @@ mod test {
     #[test]
     fn simple_print_add() {
         let actual = parse_tokens(&mut VecDeque::from([
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::ConstantNumber("1".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("69".to_string()),
             Token::CloseParen,
             Token::EndLine,
         ]));
-        let expected = vec![Statement::Print(Expression::Complete(Complete {
-            operator: BinaryOperator::Add,
-            left: Box::new(Expression::I32(1)),
-            right: Box::new(Expression::I32(69)),
-        }))];
+        let expected = vec![Statement::FunctionCall(
+            "print()".to_string(),
+            vec![Expression::Complete(Complete {
+                operator: BinaryOperator::Add,
+                left: Box::new(Expression::I32(1)),
+                right: Box::new(Expression::I32(69)),
+            })],
+        )];
         assert_eq!(actual, expected);
     }
     #[test]
@@ -725,8 +738,7 @@ mod test {
             Token::VariableName("ee".to_string()),
             Token::ConstantNumber("2".to_string()),
             Token::EndLine,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("e".to_string()),
             Token::MathOp(MathOp::Add),
             Token::VariableName("ee".to_string()),
@@ -736,11 +748,14 @@ mod test {
         let expected = vec![
             Statement::DefineVariable("e".to_string(), Expression::I32(1), Type::I32),
             Statement::DefineVariable("ee".to_string(), Expression::I32(2), Type::I32),
-            Statement::Print(Expression::Complete(Complete {
-                operator: BinaryOperator::Add,
-                left: Box::new(Expression::Variable("e".to_string())),
-                right: Box::new(Expression::Variable("ee".to_string())),
-            })),
+            Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::Complete(Complete {
+                    operator: BinaryOperator::Add,
+                    left: Box::new(Expression::Variable("e".to_string())),
+                    right: Box::new(Expression::Variable("ee".to_string())),
+                })],
+            ),
         ];
         assert_eq!(actual, expected);
     }
@@ -758,8 +773,7 @@ mod test {
             Token::ConstantNumber("69".to_string()),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("e".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -773,7 +787,10 @@ mod test {
                     left: Box::new(Expression::Variable("e".to_string())),
                     right: Box::new(Expression::I32(69)),
                 }),
-                VecDeque::from([Statement::Print(Expression::Variable("e".to_string()))]),
+                VecDeque::from([Statement::FunctionCall(
+                    "print()".to_string(),
+                    vec![Expression::Variable("e".to_string())],
+                )]),
                 VecDeque::new(),
                 None,
             ),
@@ -797,8 +814,7 @@ mod test {
             Token::Increment,
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("i".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -819,7 +835,10 @@ mod test {
                 "i".to_string(),
                 Expression::Increment,
             )),
-            VecDeque::from([Statement::Print(Expression::Variable("i".to_string()))]),
+            VecDeque::from([Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::Variable("i".to_string())],
+            )]),
         )];
         assert_eq!(actual, expected);
     }
@@ -836,8 +855,7 @@ mod test {
             Token::Boolean(false),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::String("a".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -848,7 +866,10 @@ mod test {
             Expression::Bool(true),
             VecDeque::from([Statement::If(
                 Expression::Bool(false),
-                VecDeque::from([Statement::Print(Expression::String("a".to_string()))]),
+                VecDeque::from([Statement::FunctionCall(
+                    "print()".to_string(),
+                    vec![Expression::String("a".to_string())],
+                )]),
                 VecDeque::new(),
                 None,
             )]),
@@ -870,8 +891,7 @@ mod test {
             Token::Boolean(false),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::String("a".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -881,8 +901,7 @@ mod test {
             Token::Boolean(true),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::String("n".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -894,13 +913,19 @@ mod test {
             VecDeque::from([
                 Statement::If(
                     Expression::Bool(false),
-                    VecDeque::from([Statement::Print(Expression::String("a".to_string()))]),
+                    VecDeque::from([Statement::FunctionCall(
+                        "print()".to_string(),
+                        vec![Expression::String("a".to_string())],
+                    )]),
                     VecDeque::new(),
                     None,
                 ),
                 Statement::If(
                     Expression::Bool(true),
-                    VecDeque::from([Statement::Print(Expression::String("n".to_string()))]),
+                    VecDeque::from([Statement::FunctionCall(
+                        "print()".to_string(),
+                        vec![Expression::String("n".to_string())],
+                    )]),
                     VecDeque::new(),
                     None,
                 ),
@@ -1111,8 +1136,7 @@ mod test {
             Token::CloseParen,
             Token::StartBlock,
             Token::EndBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("i".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -1120,7 +1144,10 @@ mod test {
         let expected = vec![
             Statement::DefineVariable("i".to_string(), Expression::I64(9), Type::I64),
             Statement::WhileLoop(Expression::Bool(false), VecDeque::new()),
-            Statement::Print(Expression::Variable("i".to_string())),
+            Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::Variable("i".to_string())],
+            ),
         ];
         assert_eq!(actual, expected);
     }
@@ -1178,10 +1205,8 @@ mod test {
     }
     #[test]
     fn complex_print_1() {
-        //print((1+2)*3);
         let actual = parse_tokens(&mut VecDeque::from([
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::OpenParen,
             Token::ConstantNumber("1".to_string()),
             Token::MathOp(MathOp::Add),
@@ -1192,39 +1217,39 @@ mod test {
             Token::CloseParen,
             Token::EndLine,
         ]));
-        let expected = vec![Statement::Print(Expression::Complete(Complete {
-            operator: BinaryOperator::Multiply,
-            left: Box::new(Expression::CompleteU(CompleteU {
-                operator: UnaryOperator::Parenthesis,
-                child: Box::new(Expression::Complete(Complete {
-                    operator: BinaryOperator::Add,
-                    left: Box::new(Expression::I32(1)),
-                    right: Box::new(Expression::I32(2)),
+        let expected = vec![Statement::FunctionCall(
+            "print()".to_string(),
+            vec![Expression::Complete(Complete {
+                operator: BinaryOperator::Multiply,
+                left: Box::new(Expression::CompleteU(CompleteU {
+                    operator: UnaryOperator::Parenthesis,
+                    child: Box::new(Expression::Complete(Complete {
+                        operator: BinaryOperator::Add,
+                        left: Box::new(Expression::I32(1)),
+                        right: Box::new(Expression::I32(2)),
+                    })),
                 })),
-            })),
-            right: Box::new(Expression::I32(3)),
-        }))];
+                right: Box::new(Expression::I32(3)),
+            })],
+        )];
         assert_eq!(actual, expected);
     }
     #[test]
     fn boolean_operators() {
         let actual = parse_tokens(&mut VecDeque::from([
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::Boolean(false),
             Token::MathOp(MathOp::And),
             Token::Boolean(true),
             Token::CloseParen,
             Token::EndLine,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::Boolean(false),
             Token::MathOp(MathOp::Or),
             Token::Boolean(true),
             Token::CloseParen,
             Token::EndLine,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::MathOp(MathOp::Not),
             Token::Boolean(false),
             Token::MathOp(MathOp::And),
@@ -1233,24 +1258,33 @@ mod test {
             Token::EndLine,
         ]));
         let expected = vec![
-            Statement::Print(Expression::Complete(Complete {
-                operator: BinaryOperator::And,
-                left: Box::new(Expression::Bool(false)),
-                right: Box::new(Expression::Bool(true)),
-            })),
-            Statement::Print(Expression::Complete(Complete {
-                operator: BinaryOperator::Or,
-                left: Box::new(Expression::Bool(false)),
-                right: Box::new(Expression::Bool(true)),
-            })),
-            Statement::Print(Expression::Complete(Complete {
-                operator: BinaryOperator::And,
-                left: Box::new(Expression::CompleteU(CompleteU {
-                    operator: UnaryOperator::Not,
-                    child: Box::new(Expression::Bool(false)),
-                })),
-                right: Box::new(Expression::Bool(true)),
-            })),
+            Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::Complete(Complete {
+                    operator: BinaryOperator::And,
+                    left: Box::new(Expression::Bool(false)),
+                    right: Box::new(Expression::Bool(true)),
+                })],
+            ),
+            Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::Complete(Complete {
+                    operator: BinaryOperator::Or,
+                    left: Box::new(Expression::Bool(false)),
+                    right: Box::new(Expression::Bool(true)),
+                })],
+            ),
+            Statement::FunctionCall(
+                "print()".to_string(),
+                vec![Expression::Complete(Complete {
+                    operator: BinaryOperator::And,
+                    left: Box::new(Expression::CompleteU(CompleteU {
+                        operator: UnaryOperator::Not,
+                        child: Box::new(Expression::Bool(false)),
+                    })),
+                    right: Box::new(Expression::Bool(true)),
+                })],
+            ),
         ];
         assert_eq!(actual, expected);
     }

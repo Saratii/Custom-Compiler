@@ -63,6 +63,13 @@ pub fn evaluate(lines: VecDeque<Statement>) {
                 block: VecDeque::new(),
             },
         ),
+        (
+            "print()".to_string(),
+            Function {
+                name: "print()".to_string(),
+                block: VecDeque::new(),
+            },
+        ),
     ]);
     for i in 0..lines.len() {
         evaluate_line(&lines[i as usize], &mut variables, &function_map);
@@ -75,8 +82,10 @@ pub fn evaluate_line(
     function_map: &HashMap<String, Function>,
 ) {
     match statement {
-        Statement::Print(expression) => {
-            println!("{}", expression.evaluate(variables));
+        Statement::FunctionCall(name, args) => {
+            if name == "print()" {
+                println!("{}", args[0].evaluate(variables));
+            }
         }
         Statement::DefineVariable(name, value, variable_type) => {
             variables.insert(
@@ -187,6 +196,8 @@ impl CompleteU {
             (Primitive::F64(value), UnaryOperator::Parenthesis) => Primitive::F64(value),
             (Primitive::I64(value), UnaryOperator::Parenthesis) => Primitive::I64(value),
             (Primitive::F32(value), UnaryOperator::Parenthesis) => Primitive::F32(value),
+            (Primitive::String(value), UnaryOperator::Parenthesis) => Primitive::String(value),
+            (Primitive::Bool(value), UnaryOperator::Parenthesis) => Primitive::Bool(value),
             _ => {
                 let error_message = format!(
                     "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for {:?}",

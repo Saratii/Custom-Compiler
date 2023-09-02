@@ -4,7 +4,6 @@ use regex::Regex;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
-    Print,
     String(String),
     OpenParen,
     CloseParen,
@@ -36,7 +35,6 @@ pub enum Token {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::Print => write!(f, "Print"),
             Token::String(_) => write!(f, "String"),
             Token::OpenParen => write!(f, "OpenParen"),
             Token::CloseParen => write!(f, "CloseParen"),
@@ -90,7 +88,7 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
     let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
     let keywords = Vec::from([
-        ("print", Token::Print),
+        ("print(", Token::FunctionCall("print()".to_string())),
         ("(", Token::OpenParen),
         (")", Token::CloseParen),
         ("}", Token::EndBlock),
@@ -122,8 +120,8 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
         ("==", Token::MathOp(MathOp::Equals)),
         ("!=", Token::MathOp(MathOp::NotEqual)),
         ("!", Token::MathOp(MathOp::Not)),
-        ("True", Token::Boolean(true)),
-        ("False", Token::Boolean(false)),
+        ("true", Token::Boolean(true)),
+        ("false", Token::Boolean(false)),
         (";", Token::EndLine),
         ("while", Token::WhileLoop),
         ("for", Token::ForLoop),
@@ -161,10 +159,6 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
                 .as_str();
             tokens.push_back(Token::ConstantNumber(constant_number.to_string()));
             inputs = inputs[constant_number.len()..].to_string();
-        } else if inputs.starts_with("true") {
-            panic!("you typed: true, did you mean True?");
-        } else if inputs.starts_with("false") {
-            panic!("you typed: false, did you mean False?");
         } else if name_regex.is_match(&inputs) {
             let variable_name = name_regex
                 .captures(&inputs)
@@ -214,8 +208,7 @@ mod test {
     fn hello_world() {
         let actual = parse_to_tokens("print(\"hello world\");");
         let expected = vec![
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::String("hello world".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -274,8 +267,7 @@ mod test {
             Token::VariableName("eee".to_string()),
             Token::Boolean(true),
             Token::EndLine,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("eee".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -290,8 +282,7 @@ mod test {
             Token::VariableName("ee".to_string()),
             Token::String("should I kill myself?".to_string()),
             Token::EndLine,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("ee".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -307,8 +298,7 @@ mod test {
             Token::Boolean(true),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::ConstantNumber("69".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -335,8 +325,7 @@ while (True){
             Token::Boolean(true),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("e".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -425,8 +414,7 @@ while (True){
     fn print_equation() {
         let actual = parse_to_tokens("print(1 + 69);");
         let expected = vec![
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::ConstantNumber("1".to_string()),
             Token::MathOp(MathOp::Add),
             Token::ConstantNumber("69".to_string()),
@@ -447,8 +435,7 @@ while (True){
             Token::VariableName("ee".to_string()),
             Token::ConstantNumber("2".to_string()),
             Token::EndLine,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("e".to_string()),
             Token::MathOp(MathOp::Add),
             Token::VariableName("ee".to_string()),
@@ -472,8 +459,7 @@ while (True){
             Token::ConstantNumber("69".to_string()),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("e".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -499,8 +485,7 @@ while (True){
             Token::Increment,
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::VariableName("i".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -522,8 +507,7 @@ while (True){
             Token::Boolean(false),
             Token::CloseParen,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::String("a".to_string()),
             Token::CloseParen,
             Token::EndLine,
@@ -584,8 +568,7 @@ while (True){
             Token::EndBlock,
             Token::Else,
             Token::StartBlock,
-            Token::Print,
-            Token::OpenParen,
+            Token::FunctionCall("print()".to_string()),
             Token::String("e".to_string()),
             Token::CloseParen,
             Token::EndLine,

@@ -14,17 +14,17 @@ VARIABLES
 ex.
 String s = "hello world";
 i32 eleven = 11;
-Bool red = False;
+Bool red = false;
 
 WHILE
 while([expression -> condition]){
     [lines to be executed]
 }
 ex.
-while(True){
+while(true){
     print("foo");
 }
-Bool a = True;
+Bool a = true;
 while(a){
     print("bar");
 }
@@ -34,10 +34,10 @@ if([expression -> condition]){
     [lines to be executed]
 }
 ex.
-if(True){
+if(true){
     print("foo");
 }
-Bool a = True;
+Bool a = true;
 if(a){
     print("bar");
 }
@@ -72,3 +72,8 @@ i32(arg)
 i64(arg)
 f32(arg)
 f64(arg)
+
+BOOLEAN OPERATIONS
+a || b
+!a
+a && b
