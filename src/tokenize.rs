@@ -1,27 +1,18 @@
-use std::{collections::VecDeque, fmt::Display};
+use std::{collections::VecDeque, fmt::Display, iter::Peekable};
 
 use regex::Regex;
 
+use crate::parse::Type;
+
 #[derive(PartialEq, Debug, Clone)]
-pub enum Token {
+pub enum Token { 
+    TypeDeclaration(Type),
+    Identifier(String),
     String(String),
     OpenParen,
     CloseParen,
     StartBlock,
     EndBlock,
-    TypeI32,
-    TypeI64,
-    TypeF32,
-    TypeF64,
-    TypeString,
-    TypeBool,
-    TypeI32Array,
-    TypeI64Array,
-    TypeF32Array,
-    TypeF64Array,
-    TypeStringArray,
-    TypeBoolArray,
-    VariableName(String),
     ConstantNumber(String),
     Boolean(bool),
     WhileLoop,
@@ -34,7 +25,6 @@ pub enum Token {
     Decrement,
     Else,
     Elif,
-    FunctionCall(String),
     Ignore,
     OpenBracket,
     CloseBracket,
@@ -49,13 +39,7 @@ impl Display for Token {
             Token::CloseParen => write!(f, "CloseParen"),
             Token::StartBlock => write!(f, "StartBlock"),
             Token::EndBlock => write!(f, "EndBlock"),
-            Token::TypeI32 => write!(f, "TypeI32"),
-            Token::TypeI64 => write!(f, "TypeI64"),
-            Token::TypeF64 => write!(f, "TypeF64"),
-            Token::TypeF32 => write!(f, "TypeF32"),
-            Token::TypeString => write!(f, "TypeString"),
-            Token::TypeBool => write!(f, "TypeBool"),
-            Token::VariableName(_) => write!(f, "VariableName"),
+            Token::Identifier(string) => write!(f, "Identifier: {}", string),
             Token::ConstantNumber(_) => write!(f, "ConstantNumber"),
             Token::Boolean(_) => write!(f, "Boolean"),
             Token::WhileLoop => write!(f, "WhileLoop"),
@@ -68,17 +52,12 @@ impl Display for Token {
             Token::Decrement => write!(f, "IncrementDown"),
             Token::Else => write!(f, "Else"),
             Token::Elif => write!(f, "Elif"),
-            Token::FunctionCall(name) => write!(f, "Function: {name}"),
             Token::Ignore => write!(f, "Ignore"),
-            Token::TypeI32Array => write!(f, "TypeI32Array"),
-            Token::TypeI64Array => write!(f, "TypeI64Array"),
-            Token::TypeF32Array => write!(f, "TypeF32Array"),
-            Token::TypeF64Array => write!(f, "TypeF64Array"),
-            Token::TypeStringArray => write!(f, "TypeStringArray"),
-            Token::TypeBoolArray => write!(f, "TypeBoolArray"),
             Token::OpenBracket => write!(f, "OpenBracket"),
             Token::CloseBracket => write!(f, "CloseBracket"),
             Token::DefineFunction => write!(f, "DefineFunction"),
+            Token::Identifier(string) => write!(f, "Identifier: {}", string),
+            Token::TypeDeclaration(type_) => write!(f, "Type: {:?}", type_),
         }
     }
 }
@@ -103,8 +82,7 @@ pub enum MathOp {
 
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     let number_regex = Regex::new(r"^(\d+)").unwrap();
-    let function_call_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*[(])").unwrap();
-    let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
+    let identifier_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
     let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
     let keywords = Vec::from([
         ("print(", Token::FunctionCall("print()".to_string())),
@@ -178,15 +156,15 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
             }
             tokens.push_back(Token::String(string));
             inputs = inputs[1..].to_string();
-        } else if function_call_regex.is_match(&inputs) {
-            let function_name = name_regex
+        } else if identifier_regex.is_match(&inputs) {
+            let identifier = identifier_regex
                 .captures(&inputs)
                 .unwrap()
                 .get(0)
                 .unwrap()
                 .as_str();
-            tokens.push_back(Token::FunctionCall(function_name.to_string()));
-            inputs = inputs[function_name.len()..].to_string();
+            tokens.push_back(Token::Identifier(identifier.to_string()));
+            inputs = inputs[identifier.len()..].to_string();
         } else if number_regex.is_match(&inputs) {
             let constant_number = number_regex
                 .captures(&inputs)
@@ -196,15 +174,6 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
                 .as_str();
             tokens.push_back(Token::ConstantNumber(constant_number.to_string()));
             inputs = inputs[constant_number.len()..].to_string();
-        } else if name_regex.is_match(&inputs) {
-            let variable_name = name_regex
-                .captures(&inputs)
-                .unwrap()
-                .get(0)
-                .unwrap()
-                .as_str();
-            tokens.push_back(Token::VariableName(variable_name.to_string()));
-            inputs = inputs[variable_name.len()..].to_string();
         } else {
             if inputs.len() != 0 {
                 panic!("Oopsie Woopsie: Code contains something that doesnt parse or hidden characters: {}", &inputs[0..])
@@ -234,6 +203,19 @@ pub fn remove_spaces(raw: &str) -> String {
     }
     return result;
 }
+pub fn scan_ident(chars: &[char]) -> Token{
+    let mut ident = String::new();
+    while let Some(&ch) = string.peek() {
+        match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9'=> {
+                ident.push(ch);
+                self.chars.next();
+            }
+            _ => break,
+        }
+    }
+    return Token::Identifier(ident)
+}
 #[cfg(test)]
 mod test {
 
@@ -245,7 +227,8 @@ mod test {
     fn hello_world() {
         let actual = parse_to_tokens("print(\"hello world\");");
         let expected = vec![
-            Token::FunctionCall("print()".to_string()),
+            Token::Identifier("print".to_string()),
+            Token::OpenParen,
             Token::String("hello world".to_string()),
             Token::CloseParen,
             Token::EndLine,
