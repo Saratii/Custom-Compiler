@@ -38,6 +38,7 @@ pub enum Token {
     Ignore,
     OpenBracket,
     CloseBracket,
+    DefineFunction,
 }
 
 impl Display for Token {
@@ -77,6 +78,7 @@ impl Display for Token {
             Token::TypeBoolArray => write!(f, "TypeBoolArray"),
             Token::OpenBracket => write!(f, "OpenBracket"),
             Token::CloseBracket => write!(f, "CloseBracket"),
+            Token::DefineFunction => write!(f, "DefineFunction"),
         }
     }
 }
@@ -101,6 +103,7 @@ pub enum MathOp {
 
 pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
     let number_regex = Regex::new(r"^(\d+)").unwrap();
+    let function_call_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*[(])").unwrap();
     let name_regex = Regex::new(r"^([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
     let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
     let keywords = Vec::from([
@@ -153,6 +156,7 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
         ("=", Token::Ignore),
         ("[", Token::OpenBracket),
         ("]", Token::CloseBracket),
+        ("fn", Token::DefineFunction),
     ]);
     let mut inputs = remove_comments_regex.replace_all(raw, "").to_string();
     inputs = remove_spaces(&inputs);
@@ -174,6 +178,15 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
             }
             tokens.push_back(Token::String(string));
             inputs = inputs[1..].to_string();
+        } else if function_call_regex.is_match(&inputs) {
+            let function_name = name_regex
+                .captures(&inputs)
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .as_str();
+            tokens.push_back(Token::FunctionCall(function_name.to_string()));
+            inputs = inputs[function_name.len()..].to_string();
         } else if number_regex.is_match(&inputs) {
             let constant_number = number_regex
                 .captures(&inputs)
@@ -639,6 +652,27 @@ while (true){
             Token::Comma,
             Token::ConstantNumber("200".to_string()),
             Token::CloseBracket,
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn define_function() {
+        let actual = parse_to_tokens("fn pwint(){print(\"i\");}pwint();");
+        let expected = vec![
+            Token::DefineFunction,
+            Token::VariableName("pwint".to_string()),
+            Token::OpenParen,
+            Token::CloseParen,
+            Token::StartBlock,
+            Token::FunctionCall("print()".to_string()),
+            Token::String("i".to_string()),
+            Token::CloseParen,
+            Token::EndLine,
+            Token::EndBlock,
+            Token::FunctionCall("pwint".to_string()),
+            Token::OpenParen,
+            Token::CloseParen,
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
