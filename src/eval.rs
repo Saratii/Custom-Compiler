@@ -1,8 +1,8 @@
 use colored::Colorize;
 
-use crate::parse::{
-    BinaryOperator, Complete, CompleteU, Expression, Function, Statement, Type, UnaryOperator,
-};
+use crate::{parse::{
+    BinaryOperator, Complete, CompleteU, Expression, Function, Statement, UnaryOperator,
+}, compiler::Type};
 use std::collections::{HashMap, VecDeque};
 #[derive(PartialEq, Debug, Clone)]
 pub enum Primitive {
