@@ -1,12 +1,11 @@
-use std::{iter::Peekable, collections::VecDeque};
+use std::{collections::VecDeque, iter::Peekable};
 
 use regex::Regex;
 
 use crate::compiler::Compiler;
 
-
 #[derive(PartialEq, Debug, Clone)]
-pub enum Token { 
+pub enum Token {
     Identifier(String),
     String(String),
     OpenParen,
@@ -50,7 +49,7 @@ pub enum MathOp {
     Not,
 }
 
-impl Compiler{
+impl Compiler {
     pub fn tokenize<'compiler>(&mut self, chars: &str) -> VecDeque<Token> {
         let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
         let binding = remove_comments_regex.replace_all(chars, "");
@@ -58,113 +57,118 @@ impl Compiler{
         let mut tokens = VecDeque::new();
         loop {
             let token = self.scan_token(&mut chars_without_comments);
-            match token{
+            match token {
                 Some(token) => tokens.push_back(token.clone()),
                 None => break,
             }
         }
         tokens.retain(|token| *token != Token::Ignore);
-        return tokens
+        return tokens;
     }
-    fn scan_token<'lexer>(&mut self, chars: &mut Peekable<std::str::Chars<'lexer>>) -> Option<Token> {
+    fn scan_token<'lexer>(
+        &mut self,
+        chars: &mut Peekable<std::str::Chars<'lexer>>,
+    ) -> Option<Token> {
         loop {
             match chars.peek() {
                 Some(&ch) => match ch {
                     '0'..='9' => return Some(self.scan_numeric(chars)),
                     'a'..='z' | 'A'..='Z' => return Some(self.scan_identity(chars)),
-                    ' ' | '\t' | '\n' => {
+                    ' ' | '\t' | '\n'| '\r' => {
                         chars.next();
                     }
-                    '[' =>{
+                    '[' => {
                         chars.next();
-                        return Some(Token::OpenBracket)
+                        return Some(Token::OpenBracket);
                     }
-                    ']' =>{
+                    ']' => {
                         chars.next();
-                        return Some(Token::CloseBracket)
+                        return Some(Token::CloseBracket);
                     }
                     '<' => {
                         chars.next();
-                        match chars.peek(){
-                            Some(chh) => { 
-                                match chh {
-                                    '=' => {
-                                        chars.next();
-                                        return Some(Token::MathOp(MathOp::LessThanOrEqualTo));
-                                    }
-                                    _ => {
-                                        return Some(Token::MathOp(MathOp::LessThan))
-                                    }
+                        match chars.peek() {
+                            Some(chh) => match chh {
+                                '=' => {
+                                    chars.next();
+                                    return Some(Token::MathOp(MathOp::LessThanOrEqualTo));
                                 }
-                            }
-                            None => return None
+                                _ => return Some(Token::MathOp(MathOp::LessThan)),
+                            },
+                            None => return None,
                         }
                     }
                     '>' => {
                         chars.next();
-                        match chars.peek(){
-                            Some(chh) => { 
-                                match chh {
-                                    '=' => {
-                                        chars.next();
-                                        return Some(Token::MathOp(MathOp::GreaterThanOrEqualTo));
-                                    }
-                                    _ => {
-                                        return Some(Token::MathOp(MathOp::GreaterThan))
-                                    }
+                        match chars.peek() {
+                            Some(chh) => match chh {
+                                '=' => {
+                                    chars.next();
+                                    return Some(Token::MathOp(MathOp::GreaterThanOrEqualTo));
                                 }
-                            }
-                            None => return None
+                                _ => return Some(Token::MathOp(MathOp::GreaterThan)),
+                            },
+                            None => return None,
                         }
                     }
                     '!' => {
                         chars.next();
-                        match chars.peek(){
-                            Some(chh) => { 
-                                match chh {
-                                    '=' => {
-                                        chars.next();
-                                        return Some(Token::MathOp(MathOp::NotEqual));
-                                    }
-                                    _ => {
-                                        return Some(Token::MathOp(MathOp::Not))
-                                    }
+                        match chars.peek() {
+                            Some(chh) => match chh {
+                                '=' => {
+                                    chars.next();
+                                    return Some(Token::MathOp(MathOp::NotEqual));
                                 }
-                            }
-                            None => return None
+                                _ => return Some(Token::MathOp(MathOp::Not)),
+                            },
+                            None => return None,
                         }
                     }
-                    '&' =>{
+                    '&' => {
                         chars.next();
-                        return Some(Token::MathOp(MathOp::And))
+                        match chars.peek() {
+                            Some(chh) => match chh {
+                                '&' => {
+                                    chars.next();
+                                    return Some(Token::MathOp(MathOp::And));
+                                },
+                                _ => return None
+                            },
+                            None => return None,
+                        }
                     }
-                    '|' =>{
+                    '|' => {
                         chars.next();
-                        return Some(Token::MathOp(MathOp::Or))
+                        match chars.peek() {
+                            Some(chh) => match chh {
+                                '|' => {
+                                    chars.next();
+                                    return Some(Token::MathOp(MathOp::Or));
+                                },
+                                _ => return None
+                            },
+                            None => return None,
+                        }
                     }
                     ',' => {
                         chars.next();
-                        return Some(Token::Comma)
+                        return Some(Token::Comma);
                     }
                     '"' => {
                         chars.next();
-                        return Some(self.scan_string(chars))
+                        return Some(self.scan_string(chars));
                     }
                     '+' => {
                         chars.next();
-                        match chars.peek(){
-                            Some(chh) => { 
-                                match chh {
-                                    '+' => {
-                                        chars.next();
-                                        return Some(Token::Increment);
-                                    }
-                                    _ => {
-                                        return Some(Token::MathOp(MathOp::Add))
-                                    }
+                        match chars.peek() {
+                            Some(chh) => match chh {
+                                '+' => {
+                                    chars.next();
+                                    return Some(Token::Increment);
                                 }
-                            }
-                            None => return None
+                                _ => return Some(Token::MathOp(MathOp::Add)),
+                            },
+                            None => return None,
                         }
                     }
                     '/' => {
@@ -177,19 +181,15 @@ impl Compiler{
                     }
                     '-' => {
                         chars.next();
-                        match chars.peek(){
-                            Some(chh) => { 
-                                match chh {
-                                    '-' => {
-                                        chars.next();
-                                        return Some(Token::Decrement);
-                                    }
-                                    _ => {
-                                        return Some(Token::MathOp(MathOp::Subtract))
-                                    }
+                        match chars.peek() {
+                            Some(chh) => match chh {
+                                '-' => {
+                                    chars.next();
+                                    return Some(Token::Decrement);
                                 }
-                            }
-                            None => return None
+                                _ => return Some(Token::MathOp(MathOp::Subtract)),
+                            },
+                            None => return None,
                         }
                     }
                     '%' => {
@@ -218,24 +218,22 @@ impl Compiler{
                     }
                     '=' => {
                         chars.next();
-                        match chars.peek(){
-                            Some(chh) => { 
-                                match chh {
-                                    '=' => {
-                                        chars.next();
-                                        return Some(Token::MathOp(MathOp::Equals));
-                                    }
-                                    _ => {
-                                        return Some(Token::Assign)
-                                    }
+                        match chars.peek() {
+                            Some(chh) => match chh {
+                                '=' => {
+                                    chars.next();
+                                    return Some(Token::MathOp(MathOp::Equals));
                                 }
-                            }
-                            None => return None
+                                _ => return Some(Token::Assign),
+                            },
+                            None => return None,
                         }
                     }
-                    _ => {panic!("unexpected character: {}", ch)}
+                    _ => {
+                        panic!("unexpected character: {}, error\n", ch)
+                    }
                 },
-                None => return None
+                None => return None,
             }
         }
     }
@@ -243,22 +241,20 @@ impl Compiler{
         let mut identifier = String::new();
         while let Some(&ch) = chars.peek() {
             match ch {
-                'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => {
+                'a'..='z' | 'A'..='Z' | '_' | '0'..='9' | '<' | '>' => {
                     identifier.push(ch);
                     chars.next();
                 }
                 _ => break,
             }
         }
-        match self.scan_keywords(&identifier){
-            Some(token) => {
-                return token
-            },
+        match self.scan_keywords(&identifier) {
+            Some(token) => return token,
             None => return Token::Identifier(identifier),
         }
     }
-    fn scan_keywords<'lexer>(&mut self, ident: &String) -> Option<Token>{
-        match ident.as_str(){
+    fn scan_keywords<'lexer>(&mut self, ident: &String) -> Option<Token> {
+        match ident.as_str() {
             "while" => return Some(Token::WhileLoop),
             "if" => return Some(Token::If),
             "elif" => return Some(Token::Elif),
@@ -267,7 +263,7 @@ impl Compiler{
             "true" => return Some(Token::Boolean(true)),
             "fn" => return Some(Token::DefineFunction),
             "for" => return Some(Token::ForLoop),
-            _ => return None
+            _ => return None,
         }
     }
     fn scan_numeric<'lexer>(&self, chars: &mut Peekable<std::str::Chars<'lexer>>) -> Token {
@@ -283,21 +279,21 @@ impl Compiler{
         }
         return Token::ConstantNumber(number);
     }
-    fn scan_string<'lexer>(&mut self, chars: &mut Peekable<std::str::Chars<'lexer>>) -> Token{
+    fn scan_string<'lexer>(&mut self, chars: &mut Peekable<std::str::Chars<'lexer>>) -> Token {
         let mut string = String::new();
-        while chars.peek() != Some(&'"'){
+        while chars.peek() != Some(&'"') {
             string.push(chars.peek().unwrap().clone());
             chars.next();
         }
         chars.next();
-        return Token::String(string)
+        return Token::String(string);
     }
 }
 
 #[cfg(test)]
 mod test {
 
-    use crate::tokenize::{MathOp, Compiler};
+    use crate::tokenize::{Compiler, MathOp};
 
     use super::Token;
 
@@ -425,7 +421,7 @@ mod test {
     fn format_tab() {
         let mut compiler = Compiler::new();
         let actual = compiler.tokenize(
-    "
+            "
 i32 e = 69;
 while (true){
     print(e);
@@ -489,7 +485,8 @@ while (true){
     #[test]
     fn simple_math() {
         let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 e = 4 + 3;\ni32 ee = 4 - 3;\ni32 eee = 8 / 2;\ni32 eeee = 8 * 2;");
+        let actual = compiler
+            .tokenize("i32 e = 4 + 3;\ni32 ee = 4 - 3;\ni32 eee = 8 / 2;\ni32 eeee = 8 * 2;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
@@ -760,21 +757,15 @@ while (true){
     #[test]
     fn one_dim_array() {
         let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("Array<i32> a = [];Array<i64>b=[100, 200];");
+        let actual = compiler.tokenize("Array<i32> a = [];Array<i64> b=[100, 200];");
         let expected = vec![
-            Token::Identifier("Array".to_string()),
-            Token::MathOp(MathOp::LessThan),
-            Token::Identifier("i32".to_string()),
-            Token::MathOp(MathOp::GreaterThan),
+            Token::Identifier("Array<i32>".to_string()),
             Token::Identifier("a".to_string()),
             Token::Assign,
             Token::OpenBracket,
             Token::CloseBracket,
             Token::EndLine,
-            Token::Identifier("Array".to_string()),
-            Token::MathOp(MathOp::LessThan),
-            Token::Identifier("i64".to_string()),
-            Token::MathOp(MathOp::GreaterThan),
+            Token::Identifier("Array<i64>".to_string()),
             Token::Identifier("b".to_string()),
             Token::Assign,
             Token::OpenBracket,
@@ -804,6 +795,25 @@ while (true){
             Token::CloseBlock,
             Token::Identifier("pwint".to_string()),
             Token::OpenParen,
+            Token::CloseParen,
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn complex_logic() {
+        let mut compiler = Compiler::new();
+        let actual = compiler.tokenize("print((false || true) && true);");
+        let expected = vec![
+            Token::Identifier("print".to_string()),
+            Token::OpenParen,
+            Token::OpenParen,
+            Token::Boolean(false),
+            Token::MathOp(MathOp::Or),
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::MathOp(MathOp::And),
+            Token::Boolean(true),
             Token::CloseParen,
             Token::EndLine,
         ];

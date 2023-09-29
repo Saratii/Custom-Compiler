@@ -1,8 +1,8 @@
 use colored::Colorize;
 
 use crate::{parse::{
-    BinaryOperator, Complete, CompleteU, Expression, Function, Statement, UnaryOperator,
-}, compiler::Type};
+    BinaryOperator, Complete, CompleteU, Expression, Statement, UnaryOperator,
+}, compiler::{Type, Compiler}};
 use std::collections::{HashMap, VecDeque};
 #[derive(PartialEq, Debug, Clone)]
 pub enum Primitive {
@@ -44,124 +44,121 @@ impl std::fmt::Display for Primitive {
         }
     }
 }
-pub fn evaluate(lines: VecDeque<Statement>) {
-    let mut variables = HashMap::new();
-    let function_map = HashMap::new();
-    for i in 0..lines.len() {
-        evaluate_line(&lines[i as usize], &mut variables, &function_map);
+impl Compiler{
+    pub fn evaluate(&mut self, statements: VecDeque<Statement>) {
+        for i in 0..statements.len() {
+            self.evaluate_line(&statements[i as usize]);
+        }
     }
-}
 
-pub fn evaluate_line(
-    statement: &Statement,
-    variables: &mut HashMap<String, (Primitive, Type)>,
-    function_map: &HashMap<String, Function>,
-) {
-    match statement {
-        Statement::FunctionCall(name, args) => {
-            if name == "print()" {
-                println!("{}", args[0].evaluate(variables));
-            }
-        }
-        Statement::DefineVariable(name, value, variable_type) => {
-            variables.insert(
-                name.clone(),
-                (value.clone().evaluate(variables), variable_type.clone()),
-            );
-        }
-        Statement::WhileLoop(condition, lines) => {
-            let mut literal_condition = condition.evaluate(variables);
-            match literal_condition {
-                Primitive::Bool(mut value) => {
-                    while value {
-                        for statement in lines {
-                            evaluate_line(statement, variables, function_map);
-                        }
-                        literal_condition = condition.evaluate(variables);
-                        match literal_condition {
-                            Primitive::Bool(val) => value = val,
-                            _ => {}
-                        }
-                    }
+    pub fn evaluate_line(&mut self, statement: &Statement) {
+        match statement {
+            Statement::FunctionCall(name, args) => {
+                if name == "print"{
+                    println!("{}", args[0].evaluate(&self.variable_map))
                 }
-                _ => {}
             }
-        }
-        Statement::If(condition, statements, elifs, else_) => match condition.evaluate(variables) {
-            Primitive::Bool(literal) => {
-                if literal {
-                    for statement in statements {
-                        evaluate_line(statement, variables, function_map);
-                    }
-                } else {
-                    'break_when_found: for elif in elifs {
-                        match elif {
-                            Statement::Elif(elif_condition, elif_block) => {
-                                match elif_condition.evaluate(&variables) {
-                                    Primitive::Bool(elif_literal) => {
-                                        if elif_literal {
-                                            for statement in elif_block {
-                                                evaluate_line(statement, variables, &function_map);
-                                            }
-                                            break 'break_when_found;
-                                        }
-                                    }
-                                    _ => {}
-                                }
+            Statement::DefineVariable(name, value, variable_type) => {
+                self.variable_map.insert(
+                    name.clone(),
+                    (value.clone().evaluate(&self.variable_map), variable_type.clone()),
+                );
+            }
+            Statement::WhileLoop(condition, lines) => {
+                let mut literal_condition = condition.evaluate(&self.variable_map);
+                match literal_condition {
+                    Primitive::Bool(mut value) => {
+                        while value {
+                            for statement in lines {
+                                self.evaluate_line(statement);
                             }
-                            _ => {}
+                            literal_condition = condition.evaluate(&self.variable_map);
+                            match literal_condition {
+                                Primitive::Bool(val) => value = val,
+                                _ => {}
+                            }
                         }
                     }
-                    for statement in else_.clone().unwrap() {
-                        evaluate_line(&statement, variables, &function_map);
-                    }
+                    _ => {}
                 }
             }
-            _ => panic!("compiler made an oopsie woopsie"),
-        },
-        Statement::ModifyVariable(name, expression) => {
-            let literal = expression.evaluate(variables);
-            match variables.get_mut(name) {
-                Some(tuple) => {
-                    let ty = match literal {
-                        Primitive::Bool(_) => Type::Bool,
-                        Primitive::I32(_) => Type::I32,
-                        Primitive::String(_) => Type::String,
-                        Primitive::F32(_) => Type::F32,
-                        Primitive::I64(_) => Type::I64,
-                        Primitive::F64(_) => Type::F64,
-                        Primitive::Array(_) => todo!(),
-                    };
-                    *tuple = (literal, ty);
-                }
-                None => {
-                    let error_message = format!("ST:NAME ERROR -> name: {} does not exist", name);
-                    panic!("{}", error_message.purple());
-                }
-            }
-        }
-        Statement::ForLoop(define_variable, condition, increment, lines) => {
-            evaluate_line(define_variable, variables, function_map);
-            let mut evaluated_condition = condition.evaluate(variables);
-            match evaluated_condition {
-                Primitive::Bool(mut value) => {
-                    while value {
-                        for statement in lines {
-                            evaluate_line(statement, variables, function_map);
+            Statement::If(condition, statements, elifs, else_) => match condition.evaluate(&self.variable_map) {
+                Primitive::Bool(literal) => {
+                    if literal {
+                        for statement in statements {
+                            self.evaluate_line(statement);
                         }
-                        evaluate_line(&**&increment, variables, &function_map);
-                        evaluated_condition = condition.evaluate(variables);
-                        match evaluated_condition {
-                            Primitive::Bool(updated_value) => value = updated_value,
-                            _ => {}
+                    } else {
+                        'break_when_found: for elif in elifs {
+                            match elif {
+                                Statement::Elif(elif_condition, elif_block) => {
+                                    match elif_condition.evaluate(&self.variable_map) {
+                                        Primitive::Bool(elif_literal) => {
+                                            if elif_literal {
+                                                for statement in elif_block {
+                                                    self.evaluate_line(statement);
+                                                }
+                                                break 'break_when_found;
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        for statement in else_.clone().unwrap() {
+                            self.evaluate_line(&statement);
                         }
                     }
                 }
-                _ => {}
+                _ => panic!("compiler made an oopsie woopsie"),
+            },
+            Statement::ModifyVariable(name, expression) => {
+                let literal = expression.evaluate(&self.variable_map);
+                match self.variable_map.get(name) {
+                    Some(_) => {
+                        let ty = match literal {
+                            Primitive::Bool(_) => Type::Bool,
+                            Primitive::I32(_) => Type::I32,
+                            Primitive::String(_) => Type::String,
+                            Primitive::F32(_) => Type::F32,
+                            Primitive::I64(_) => Type::I64, 
+                            Primitive::F64(_) => Type::F64,
+                            Primitive::Array(_) => todo!(),
+                        };
+
+                        self.variable_map.insert(name.to_string(), (literal, ty));
+                    }
+                    None => {
+                        let error_message = format!("ST:NAME ERROR -> name: {} does not exist", name);
+                        panic!("{}", error_message.purple());
+                    }
+                }
             }
-        }
-        _ => {
-            panic!("compiler found unexpected statement {:?}", statement)
+            Statement::ForLoop(define_variable, condition, increment, lines) => {
+                self.evaluate_line(define_variable);
+                let mut evaluated_condition = condition.evaluate(&self.variable_map);
+                match evaluated_condition {
+                    Primitive::Bool(mut value) => {
+                        while value {
+                            for statement in lines {
+                                self.evaluate_line(statement);
+                            }
+                            self.evaluate_line(increment);
+                            evaluated_condition = condition.evaluate(&self.variable_map);
+                            match evaluated_condition {
+                                Primitive::Bool(updated_value) => value = updated_value,
+                                _ => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {
+                panic!("compiler found unexpected statement {:?}", statement)
+            }
         }
     }
 }
@@ -235,7 +232,7 @@ impl Complete {
                 BinaryOperator::NotEqual => Primitive::Bool(left != right),
                 _ => {
                     let error_message = format!(
-                        "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32",
+                        "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for f32 and f32",
                         self.operator
                     );
                     panic!("{}", error_message.purple())
@@ -255,7 +252,7 @@ impl Complete {
                 BinaryOperator::NotEqual => Primitive::Bool(left != right),
                 _ => {
                     let error_message = format!(
-                        "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32",
+                        "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i64 and i64",
                         self.operator
                     );
                     panic!("{}", error_message.purple())
@@ -275,7 +272,7 @@ impl Complete {
                 BinaryOperator::NotEqual => Primitive::Bool(left != right),
                 _ => {
                     let error_message = format!(
-                        "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32",
+                        "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for f64 and f64",
                         self.operator
                     );
                     panic!("{}", error_message.purple())
@@ -290,7 +287,7 @@ impl Complete {
                 BinaryOperator::NotEqual => Primitive::Bool(left != right as i64),
                 _ => {
                     let error_message = format!(
-                        "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i32 and i32",
+                        "ST: MISMATCHED-TYPES -> Operator {:?} is not defined for i64 and i32",
                         self.operator
                     );
                     panic!("{}", error_message.purple())
@@ -335,15 +332,15 @@ impl Expression {
             Expression::F64(value) => Primitive::F64(*value),
             Expression::FunctionCall(name, args) => match args[0].evaluate(variables) {
                 Primitive::I32(value) => {
-                    if name == "i32()" {
+                    if name == "i32" {
                         return Primitive::I32(value as i32);
-                    } else if name == "i64()" {
+                    } else if name == "i64" {
                         return Primitive::I64(value as i64);
-                    } else if name == "f64()" {
+                    } else if name == "f64" {
                         return Primitive::F64(value as f64);
-                    } else if name == "f32()" {
+                    } else if name == "f32" {
                         return Primitive::F32(value as f32);
-                    } else if name == "string()" {
+                    } else if name == "string" {
                         return Primitive::String(value.to_string());
                     } else {
                         let error_message =
@@ -378,3 +375,5 @@ impl Expression {
         }
     }
 }
+
+

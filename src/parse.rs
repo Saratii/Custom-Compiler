@@ -1,4 +1,3 @@
-use colored::Colorize;
 use core::panic;
 use std::collections::VecDeque;
 
@@ -437,7 +436,7 @@ impl Compiler {
                 }
                 Token::OpenBracket => {
                     let mut data = Vec::new();
-                    if tokens[0] == Token::CloseBracket{
+                    if tokens[0] == Token::CloseBracket {
                         self.eat_token(tokens, Token::CloseBracket);
                         self.stack_helper(&mut stack, Expression::Array(data))
                     } else {
@@ -511,7 +510,6 @@ impl Compiler {
             "f64" => return Type::F64,
             "Bool" => return Type::Bool,
             "String" => return Type::String,
-
             thing => {
                 if thing.starts_with("Array<") {
                     return Type::Array(Box::new(self.parse_type_hint(&thing[6..thing.len() - 1])));
@@ -1452,6 +1450,39 @@ mod test {
             "a".to_string(),
             Expression::Array(vec![Expression::Array(vec![])]),
             Type::Array(Box::new(Type::Array(Box::new(Type::String)))),
+        )];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn complex_logic() {
+        let compiler = Compiler::new();
+        let actual = compiler.parse(&mut VecDeque::from([
+            Token::Identifier("print".to_string()),
+            Token::OpenParen,
+            Token::OpenParen,
+            Token::Boolean(false),
+            Token::MathOp(MathOp::Or),
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::MathOp(MathOp::And),
+            Token::Boolean(true),
+            Token::CloseParen,
+            Token::EndLine,
+        ]));
+        let expected = vec![Statement::FunctionCall(
+            "print".to_string(),
+            vec![Expression::Complete(Complete {
+                operator: BinaryOperator::And,
+                left: Box::new(Expression::CompleteU(CompleteU {
+                    operator: UnaryOperator::Parenthesis,
+                    child: Box::new(Expression::Complete(Complete {
+                        operator: BinaryOperator::Or,
+                        left: Box::new(Expression::Bool(false)),
+                        right: Box::new(Expression::Bool(true)),
+                    })),
+                })),
+                right: Box::new(Expression::Bool(true)),
+            })],
         )];
         assert_eq!(actual, expected);
     }
