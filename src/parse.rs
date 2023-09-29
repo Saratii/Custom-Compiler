@@ -413,6 +413,7 @@ impl Compiler {
                             child: Box::new(self.parse_expression(tokens, None)),
                         }),
                     );
+                    self.eat_token(tokens, Token::CloseParen);
                 }
                 Token::Increment => {
                     if tokens.len() > 0 {
@@ -1431,6 +1432,26 @@ mod test {
             "a".to_string(),
             Expression::Array(vec![]),
             Type::Array(Box::new(Type::String)),
+        )];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn empty_two_dim_array() {
+        let compiler = Compiler::new();
+        let actual = compiler.parse(&mut VecDeque::from([
+            Token::Identifier("Array<Array<String>>".to_string()),
+            Token::Identifier("a".to_string()),
+            Token::Assign,
+            Token::OpenBracket,
+            Token::OpenBracket,
+            Token::CloseBracket,
+            Token::CloseBracket,
+            Token::EndLine,
+        ]));
+        let expected = vec![Statement::DefineVariable(
+            "a".to_string(),
+            Expression::Array(vec![Expression::Array(vec![])]),
+            Type::Array(Box::new(Type::Array(Box::new(Type::String)))),
         )];
         assert_eq!(actual, expected);
     }
