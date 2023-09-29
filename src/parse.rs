@@ -637,7 +637,7 @@ mod test {
             Token::OpenBlock,
             Token::Identifier("print".to_string()),
             Token::OpenParen,
-            Token::String("69".to_string()),
+            Token::String("6".to_string()),
             Token::CloseParen,
             Token::EndLine,
             Token::CloseBlock,
@@ -646,7 +646,7 @@ mod test {
             Expression::Bool(true),
             VecDeque::from([Statement::FunctionCall(
                 "print".to_string(),
-                vec![Expression::String("69".to_string())],
+                vec![Expression::String("6".to_string())],
             )]),
         )];
         assert_eq!(actual, expected);
@@ -775,7 +775,7 @@ mod test {
             Token::OpenParen,
             Token::ConstantNumber("1".to_string()),
             Token::MathOp(MathOp::Add),
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::CloseParen,
             Token::EndLine,
         ]));
@@ -784,7 +784,7 @@ mod test {
             vec![Expression::Complete(Complete {
                 operator: BinaryOperator::Add,
                 left: Box::new(Expression::I32(1)),
-                right: Box::new(Expression::I32(69)),
+                right: Box::new(Expression::I32(6)),
             })],
         )];
         assert_eq!(actual, expected);
@@ -832,13 +832,13 @@ mod test {
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
             Token::Assign,
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::EndLine,
             Token::If,
             Token::OpenParen,
             Token::Identifier("e".to_string()),
             Token::MathOp(MathOp::Equals),
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::CloseParen,
             Token::OpenBlock,
             Token::Identifier("print".to_string()),
@@ -849,12 +849,12 @@ mod test {
             Token::CloseBlock,
         ]));
         let expected = vec![
-            Statement::DefineVariable("e".to_string(), Expression::I32(69), Type::I32),
+            Statement::DefineVariable("e".to_string(), Expression::I32(6), Type::I32),
             Statement::If(
                 Expression::Complete(Complete {
                     operator: BinaryOperator::Equals,
                     left: Box::new(Expression::Variable("e".to_string())),
-                    right: Box::new(Expression::I32(69)),
+                    right: Box::new(Expression::I32(6)),
                 }),
                 VecDeque::from([Statement::FunctionCall(
                     "print".to_string(),
@@ -1038,7 +1038,7 @@ mod test {
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
             Token::Assign,
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::EndLine,
             Token::If,
             Token::OpenParen,
@@ -1060,7 +1060,7 @@ mod test {
             Token::OpenParen,
             Token::Identifier("i".to_string()),
             Token::MathOp(MathOp::Equals),
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::CloseParen,
             Token::OpenBlock,
             Token::CloseBlock,
@@ -1069,7 +1069,7 @@ mod test {
             Token::CloseBlock,
         ]));
         let expected = vec![
-            Statement::DefineVariable("i".to_string(), Expression::I32(69), Type::I32),
+            Statement::DefineVariable("i".to_string(), Expression::I32(6), Type::I32),
             Statement::If(
                 Expression::Complete(Complete {
                     operator: BinaryOperator::Equals,
@@ -1090,7 +1090,7 @@ mod test {
                         Expression::Complete(Complete {
                             operator: BinaryOperator::Equals,
                             left: Box::new(Expression::Variable("i".to_string())),
-                            right: Box::new(Expression::I32(69)),
+                            right: Box::new(Expression::I32(6)),
                         }),
                         VecDeque::from([]),
                     ),
@@ -1402,15 +1402,15 @@ mod test {
             Token::Identifier("a".to_string()),
             Token::Assign,
             Token::OpenBracket,
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::Comma,
-            Token::ConstantNumber("420".to_string()),
+            Token::ConstantNumber("42".to_string()),
             Token::CloseBracket,
             Token::EndLine,
         ]));
         let expected = vec![Statement::DefineVariable(
             "a".to_string(),
-            Expression::Array(vec![Expression::I32(69), Expression::I32(420)]),
+            Expression::Array(vec![Expression::I32(6), Expression::I32(42)]),
             Type::Array(Box::new(Type::I32)),
         )];
         assert_eq!(actual, expected);

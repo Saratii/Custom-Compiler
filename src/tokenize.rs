@@ -313,12 +313,12 @@ mod test {
     #[test]
     fn integer_variable_test() {
         let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 eeebo = 69;");
+        let actual = compiler.tokenize("i32 eeebo = 6;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("eeebo".to_string()),
             Token::Assign,
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
@@ -352,12 +352,12 @@ mod test {
     #[test]
     fn i32_variable_test() {
         let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 furfu = 420;");
+        let actual = compiler.tokenize("i32 furfu = 42;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("furfu".to_string()),
             Token::Assign,
-            Token::ConstantNumber("420".to_string()),
+            Token::ConstantNumber("42".to_string()),
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
@@ -401,7 +401,7 @@ mod test {
     #[test]
     fn while_true() {
         let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("while (true){\nprint(69);\n}");
+        let actual = compiler.tokenize("while (true){\nprint(6);\n}");
         let expected = vec![
             Token::WhileLoop,
             Token::OpenParen,
@@ -410,7 +410,7 @@ mod test {
             Token::OpenBlock,
             Token::Identifier("print".to_string()),
             Token::OpenParen,
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::CloseParen,
             Token::EndLine,
             Token::CloseBlock,
@@ -422,7 +422,7 @@ mod test {
         let mut compiler = Compiler::new();
         let actual = compiler.tokenize(
             "
-i32 e = 69;
+i32 e = 6;
 while (true){
     print(e);
 }",
@@ -431,7 +431,7 @@ while (true){
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
             Token::Assign,
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::EndLine,
             Token::WhileLoop,
             Token::OpenParen,
@@ -541,13 +541,13 @@ while (true){
     #[test]
     fn print_equation() {
         let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("print(1 + 69);");
+        let actual = compiler.tokenize("print(1 + 6);");
         let expected = vec![
             Token::Identifier("print".to_string()),
             Token::OpenParen,
             Token::ConstantNumber("1".to_string()),
             Token::MathOp(MathOp::Add),
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::CloseParen,
             Token::EndLine,
         ];
@@ -581,18 +581,18 @@ while (true){
     #[test]
     fn basic_if() {
         let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 e = 69;if(e == 69){print(e);}");
+        let actual = compiler.tokenize("i32 e = 6;if(e == 6){print(e);}");
         let expected: Vec<Token> = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
             Token::Assign,
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::EndLine,
             Token::If,
             Token::OpenParen,
             Token::Identifier("e".to_string()),
             Token::MathOp(MathOp::Equals),
-            Token::ConstantNumber("69".to_string()),
+            Token::ConstantNumber("6".to_string()),
             Token::CloseParen,
             Token::OpenBlock,
             Token::Identifier("print".to_string()),

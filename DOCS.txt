@@ -77,3 +77,6 @@ BOOLEAN OPERATIONS
 a || b
 !a
 a && b
+
+MULTIDIMENSIONAL ARRAYS
+Array<Array<i32>> a = [[1, 2, 3], [1, 2, 3]]
