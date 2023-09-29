@@ -9,3 +9,5 @@ impl Compiler{
         let mut asm_file = File::create("src/main.ll").expect("creation failed");
     }
 }
+//clang -o main.exe main.ll     
+//./main.exe
