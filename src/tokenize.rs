@@ -52,11 +52,12 @@ pub enum MathOp {
 
 impl Compiler{
     pub fn tokenize<'compiler>(&mut self, chars: &str) -> VecDeque<Token> {
-        let mut chars = chars.chars().peekable(); 
-        let mut tokens = VecDeque::new();
         let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
+        let binding = remove_comments_regex.replace_all(chars, "");
+        let mut chars_without_comments = binding.chars().peekable();
+        let mut tokens = VecDeque::new();
         loop {
-            let token = self.scan_token(&mut chars);
+            let token = self.scan_token(&mut chars_without_comments);
             match token{
                 Some(token) => tokens.push_back(token.clone()),
                 None => break,
