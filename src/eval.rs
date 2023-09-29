@@ -24,26 +24,27 @@ impl std::fmt::Display for Primitive {
             Primitive::I64(value) => write!(f, "{}", value),
             Primitive::F64(value) => write!(f, "{}", value),
             Primitive::Bool(value) => write!(f, "{}", value),
-            Primitive::Array(primitives) => {
-                let mut string = "[".to_string();
-                for prim in primitives {
-                    match prim {
-                        Primitive::String(literal) => string = string + literal,
-                        Primitive::I32(literal) => string = string + &literal.to_string() + ", ",
-                        Primitive::F32(literal) => string = string + &literal.to_string() + ", ",
-                        Primitive::I64(literal) => string = string + &literal.to_string() + ", ",
-                        Primitive::F64(literal) => string = string + &literal.to_string() + ", ",
-                        Primitive::Bool(literal) => string = string + &literal.to_string() + ", ",
-                        _ => {}
-                    }
-                }
-                string.pop();
-                string.pop();
-                string.push(']');
-                write!(f, "{}", string)
-            }
+            Primitive::Array(primitives) => write!(f, "{}", array_display_recusion(primitives)), 
         }
     }
+}
+fn array_display_recusion(primitives: &Vec<Primitive>) -> String{
+    let mut string = "[".to_string();
+    for prim in primitives {
+        match prim {
+            Primitive::String(literal) => string = string + &literal,
+            Primitive::I32(literal) => string = string + &literal.to_string() + ", ",
+            Primitive::F32(literal) => string = string + &literal.to_string() + ", ",
+            Primitive::I64(literal) => string = string + &literal.to_string() + ", ",
+            Primitive::F64(literal) => string = string + &literal.to_string() + ", ",
+            Primitive::Bool(literal) => string = string + &literal.to_string() + ", ",
+            Primitive::Array(prims) => string = string + &array_display_recusion(prims) + ", ",
+        }
+    }
+    string.pop();
+    string.pop();
+    string.push(']');
+    return string
 }
 impl Compiler {
     pub fn evaluate(&mut self, statements: &VecDeque<Statement>) {

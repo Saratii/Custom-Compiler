@@ -1,3 +1,4 @@
+//project euler problem
 i64 target = 600851475143;
 while(target % i64(2) == 0){
     target = target / 2;
@@ -11,6 +12,10 @@ while(i * i <= target){
     i = i + i64(2);
 }
 print(target);
+
+//complex logic
 print((false || true) && true);
-Array<i32> ieee = [1, 2, 3, 4];
+
+//arrays
+Array<Array<i32>> ieee = [[1, 2, 3, 4]];
 print(ieee);
