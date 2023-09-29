@@ -1,8 +1,9 @@
 use colored::Colorize;
 
-use crate::{parse::{
-    BinaryOperator, Complete, CompleteU, Expression, Statement, UnaryOperator,
-}, compiler::{Type, Compiler}};
+use crate::{
+    compiler::{Compiler, Type},
+    parse::{BinaryOperator, Complete, CompleteU, Expression, Statement, UnaryOperator},
+};
 use std::collections::{HashMap, VecDeque};
 #[derive(PartialEq, Debug, Clone)]
 pub enum Primitive {
@@ -44,8 +45,8 @@ impl std::fmt::Display for Primitive {
         }
     }
 }
-impl Compiler{
-    pub fn evaluate(&mut self, statements: VecDeque<Statement>) {
+impl Compiler {
+    pub fn evaluate(&mut self, statements: &VecDeque<Statement>) {
         for i in 0..statements.len() {
             self.evaluate_line(&statements[i as usize]);
         }
@@ -54,14 +55,17 @@ impl Compiler{
     pub fn evaluate_line(&mut self, statement: &Statement) {
         match statement {
             Statement::FunctionCall(name, args) => {
-                if name == "print"{
+                if name == "print" {
                     println!("{}", args[0].evaluate(&self.variable_map))
                 }
             }
             Statement::DefineVariable(name, value, variable_type) => {
                 self.variable_map.insert(
                     name.clone(),
-                    (value.clone().evaluate(&self.variable_map), variable_type.clone()),
+                    (
+                        value.clone().evaluate(&self.variable_map),
+                        variable_type.clone(),
+                    ),
                 );
             }
             Statement::WhileLoop(condition, lines) => {
@@ -82,38 +86,40 @@ impl Compiler{
                     _ => {}
                 }
             }
-            Statement::If(condition, statements, elifs, else_) => match condition.evaluate(&self.variable_map) {
-                Primitive::Bool(literal) => {
-                    if literal {
-                        for statement in statements {
-                            self.evaluate_line(statement);
-                        }
-                    } else {
-                        'break_when_found: for elif in elifs {
-                            match elif {
-                                Statement::Elif(elif_condition, elif_block) => {
-                                    match elif_condition.evaluate(&self.variable_map) {
-                                        Primitive::Bool(elif_literal) => {
-                                            if elif_literal {
-                                                for statement in elif_block {
-                                                    self.evaluate_line(statement);
+            Statement::If(condition, statements, elifs, else_) => {
+                match condition.evaluate(&self.variable_map) {
+                    Primitive::Bool(literal) => {
+                        if literal {
+                            for statement in statements {
+                                self.evaluate_line(statement);
+                            }
+                        } else {
+                            'break_when_found: for elif in elifs {
+                                match elif {
+                                    Statement::Elif(elif_condition, elif_block) => {
+                                        match elif_condition.evaluate(&self.variable_map) {
+                                            Primitive::Bool(elif_literal) => {
+                                                if elif_literal {
+                                                    for statement in elif_block {
+                                                        self.evaluate_line(statement);
+                                                    }
+                                                    break 'break_when_found;
                                                 }
-                                                break 'break_when_found;
                                             }
+                                            _ => {}
                                         }
-                                        _ => {}
                                     }
+                                    _ => {}
                                 }
-                                _ => {}
+                            }
+                            for statement in else_.clone().unwrap() {
+                                self.evaluate_line(&statement);
                             }
                         }
-                        for statement in else_.clone().unwrap() {
-                            self.evaluate_line(&statement);
-                        }
                     }
+                    _ => panic!("compiler made an oopsie woopsie"),
                 }
-                _ => panic!("compiler made an oopsie woopsie"),
-            },
+            }
             Statement::ModifyVariable(name, expression) => {
                 let literal = expression.evaluate(&self.variable_map);
                 match self.variable_map.get(name) {
@@ -123,7 +129,7 @@ impl Compiler{
                             Primitive::I32(_) => Type::I32,
                             Primitive::String(_) => Type::String,
                             Primitive::F32(_) => Type::F32,
-                            Primitive::I64(_) => Type::I64, 
+                            Primitive::I64(_) => Type::I64,
                             Primitive::F64(_) => Type::F64,
                             Primitive::Array(_) => todo!(),
                         };
@@ -131,7 +137,8 @@ impl Compiler{
                         self.variable_map.insert(name.to_string(), (literal, ty));
                     }
                     None => {
-                        let error_message = format!("ST:NAME ERROR -> name: {} does not exist", name);
+                        let error_message =
+                            format!("ST:NAME ERROR -> name: {} does not exist", name);
                         panic!("{}", error_message.purple());
                     }
                 }
@@ -375,5 +382,3 @@ impl Expression {
         }
     }
 }
-
-
