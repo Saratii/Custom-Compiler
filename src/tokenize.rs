@@ -9,19 +9,7 @@ pub enum Token {
     CloseParen,
     StartBlock,
     EndBlock,
-    TypeI32,
-    TypeI64,
-    TypeF32,
-    TypeF64,
-    TypeString,
-    TypeBool,
-    TypeI32Array,
-    TypeI64Array,
-    TypeF32Array,
-    TypeF64Array,
-    TypeStringArray,
-    TypeBoolArray,
-    VariableName(String),
+    Identifier,
     ConstantNumber(String),
     Boolean(bool),
     WhileLoop,
@@ -38,47 +26,6 @@ pub enum Token {
     Ignore,
     OpenBracket,
     CloseBracket,
-}
-
-impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Token::String(_) => write!(f, "String"),
-            Token::OpenParen => write!(f, "OpenParen"),
-            Token::CloseParen => write!(f, "CloseParen"),
-            Token::StartBlock => write!(f, "StartBlock"),
-            Token::EndBlock => write!(f, "EndBlock"),
-            Token::TypeI32 => write!(f, "TypeI32"),
-            Token::TypeI64 => write!(f, "TypeI64"),
-            Token::TypeF64 => write!(f, "TypeF64"),
-            Token::TypeF32 => write!(f, "TypeF32"),
-            Token::TypeString => write!(f, "TypeString"),
-            Token::TypeBool => write!(f, "TypeBool"),
-            Token::VariableName(_) => write!(f, "VariableName"),
-            Token::ConstantNumber(_) => write!(f, "ConstantNumber"),
-            Token::Boolean(_) => write!(f, "Boolean"),
-            Token::WhileLoop => write!(f, "WhileLoop"),
-            Token::MathOp(_) => write!(f, "MathOp"),
-            Token::EndLine => write!(f, "EndLine"),
-            Token::If => write!(f, "If"),
-            Token::ForLoop => write!(f, "ForLoop"),
-            Token::Comma => write!(f, "Comma"),
-            Token::Increment => write!(f, "IncrementUp"),
-            Token::Decrement => write!(f, "IncrementDown"),
-            Token::Else => write!(f, "Else"),
-            Token::Elif => write!(f, "Elif"),
-            Token::FunctionCall(name) => write!(f, "Function: {name}"),
-            Token::Ignore => write!(f, "Ignore"),
-            Token::TypeI32Array => write!(f, "TypeI32Array"),
-            Token::TypeI64Array => write!(f, "TypeI64Array"),
-            Token::TypeF32Array => write!(f, "TypeF32Array"),
-            Token::TypeF64Array => write!(f, "TypeF64Array"),
-            Token::TypeStringArray => write!(f, "TypeStringArray"),
-            Token::TypeBoolArray => write!(f, "TypeBoolArray"),
-            Token::OpenBracket => write!(f, "OpenBracket"),
-            Token::CloseBracket => write!(f, "CloseBracket"),
-        }
-    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -113,18 +60,6 @@ pub fn parse_to_tokens(raw: &str) -> VecDeque<Token> {
         ("i64(", Token::FunctionCall("i64()".to_string())),
         ("f32(", Token::FunctionCall("f32()".to_string())),
         ("f64(", Token::FunctionCall("f64()".to_string())),
-        ("String[]", Token::TypeStringArray),
-        ("i32[]", Token::TypeI32Array),
-        ("i64[]", Token::TypeI64Array),
-        ("f32[]", Token::TypeF32Array),
-        ("f64[]", Token::TypeF64Array),
-        ("Bool[]", Token::TypeBoolArray),
-        ("String", Token::TypeString),
-        ("i32", Token::TypeI32),
-        ("i64", Token::TypeI64),
-        ("f32", Token::TypeF32),
-        ("f64", Token::TypeF64),
-        ("Bool", Token::TypeBool),
         ("++", Token::Increment),
         ("--", Token::Decrement),
         ("+", Token::MathOp(MathOp::Add)),
@@ -300,11 +235,11 @@ mod test {
     }
     #[test]
     fn print_string_variable() {
-        let actual = parse_to_tokens("String ee = \"should I kill myself?\";\nprint(ee);");
+        let actual = parse_to_tokens("String ee = \"shoul?\";\nprint(ee);");
         let expected = vec![
             Token::TypeString,
             Token::VariableName("ee".to_string()),
-            Token::String("should I kill myself?".to_string()),
+            Token::String("shoul?".to_string()),
             Token::EndLine,
             Token::FunctionCall("print()".to_string()),
             Token::VariableName("ee".to_string()),

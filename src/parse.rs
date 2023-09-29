@@ -610,7 +610,7 @@ mod test {
         let actual = parse_tokens(&mut VecDeque::from([
             Token::TypeString,
             Token::VariableName("ee".to_string()),
-            Token::String("should I kill myself?".to_string()),
+            Token::String("shoul?".to_string()),
             Token::EndLine,
             Token::FunctionCall("print()".to_string()),
             Token::VariableName("ee".to_string()),
@@ -620,7 +620,7 @@ mod test {
         let expected = vec![
             Statement::DefineVariable(
                 "ee".to_string(),
-                Expression::String("should I kill myself?".to_string()),
+                Expression::String("shoul?".to_string()),
                 Type::String,
             ),
             Statement::FunctionCall(
