@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{eval::Primitive, parse::Function};
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Type {
     Bool,
     String,
@@ -10,7 +10,7 @@ pub enum Type {
     I64,
     F32,
     F64,
-    Array,
+    Array(Box<Type>),
 }
 
 pub struct Compiler{
