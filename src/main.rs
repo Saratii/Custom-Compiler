@@ -13,5 +13,5 @@ fn main() {
     let mut tokens = compiler.tokenize(code);
     let statements = compiler.parse(&mut tokens);
     compiler.evaluate(&statements);
-    compiler.to_llvm_x86(&statements);
+    // compiler.to_llvm_x86(&statements);
 }

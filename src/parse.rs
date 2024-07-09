@@ -268,18 +268,14 @@ impl Compiler {
                 }
             }
             Token::If => {
-                self.eat_token(tokens, Token::OpenParen);
                 let condition = self.parse_expression(tokens, None);
-                self.eat_token(tokens, Token::CloseParen);
                 self.eat_token(tokens, Token::OpenBlock);
                 let body = self.parse(tokens);
                 self.eat_token(tokens, Token::CloseBlock);
                 let mut elifs = VecDeque::new();
                 while tokens.len() > 0 && tokens[0] == Token::Elif {
                     self.eat_token(tokens, Token::Elif);
-                    self.eat_token(tokens, Token::OpenParen);
                     let elif_condition = self.parse_expression(tokens, None);
-                    self.eat_token(tokens, Token::CloseParen);
                     self.eat_token(tokens, Token::OpenBlock);
                     let elif_body = self.parse(tokens);
                     self.eat_token(tokens, Token::CloseBlock);
@@ -310,9 +306,7 @@ impl Compiler {
                 );
             }
             Token::WhileLoop => {
-                self.eat_token(tokens, Token::OpenParen);
                 let condition = self.parse_expression(tokens, None);
-                self.eat_token(tokens, Token::CloseParen);
                 self.eat_token(tokens, Token::OpenBlock);
                 let block = self.parse(tokens);
                 self.eat_token(tokens, Token::CloseBlock);
@@ -450,6 +444,10 @@ impl Compiler {
                         }
                         self.stack_helper(&mut stack, Expression::Array(data));
                     }
+                }
+                Token::OpenBlock => {
+                    tokens.push_front(Token::OpenBlock);
+                    return stack[0].clone();
                 }
                 a => {
                     panic!("Unexpected Token: {:?}", a)
@@ -631,9 +629,7 @@ mod test {
         let compiler = Compiler::new();
         let actual = compiler.parse(&mut VecDeque::from([
             Token::WhileLoop,
-            Token::OpenParen,
             Token::Boolean(true),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::Identifier("print".to_string()),
             Token::OpenParen,
@@ -835,11 +831,9 @@ mod test {
             Token::ConstantNumber("6".to_string()),
             Token::EndLine,
             Token::If,
-            Token::OpenParen,
             Token::Identifier("e".to_string()),
             Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("6".to_string()),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::Identifier("print".to_string()),
             Token::OpenParen,
@@ -919,14 +913,10 @@ mod test {
         let compiler = Compiler::new();
         let actual = compiler.parse(&mut VecDeque::from([
             Token::If,
-            Token::OpenParen,
             Token::Boolean(true),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::If,
-            Token::OpenParen,
             Token::Boolean(false),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::Identifier("print".to_string()),
             Token::OpenParen,
@@ -957,14 +947,10 @@ mod test {
         let compiler = Compiler::new();
         let actual = compiler.parse(&mut VecDeque::from([
             Token::If,
-            Token::OpenParen,
             Token::Boolean(true),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::If,
-            Token::OpenParen,
             Token::Boolean(false),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::Identifier("print".to_string()),
             Token::OpenParen,
@@ -973,9 +959,7 @@ mod test {
             Token::EndLine,
             Token::CloseBlock,
             Token::If,
-            Token::OpenParen,
             Token::Boolean(true),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::Identifier("print".to_string()),
             Token::OpenParen,
@@ -1041,27 +1025,21 @@ mod test {
             Token::ConstantNumber("6".to_string()),
             Token::EndLine,
             Token::If,
-            Token::OpenParen,
             Token::Identifier("i".to_string()),
             Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("6".to_string()),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::CloseBlock,
             Token::Elif,
-            Token::OpenParen,
             Token::Identifier("i".to_string()),
             Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("7".to_string()),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::CloseBlock,
             Token::Elif,
-            Token::OpenParen,
             Token::Identifier("i".to_string()),
             Token::MathOp(MathOp::Equals),
             Token::ConstantNumber("6".to_string()),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::CloseBlock,
             Token::Else,
@@ -1191,13 +1169,11 @@ mod test {
             Token::ConstantNumber("6".to_string()),
             Token::EndLine,
             Token::WhileLoop,
-            Token::OpenParen,
             Token::Identifier("i".to_string()),
             Token::MathOp(MathOp::NotEqual),
             Token::Identifier("i64".to_string()),
             Token::OpenParen,
             Token::ConstantNumber("2".to_string()),
-            Token::CloseParen,
             Token::CloseParen,
             Token::OpenBlock,
             Token::CloseBlock,
@@ -1228,9 +1204,7 @@ mod test {
             Token::ConstantNumber("9".to_string()),
             Token::EndLine,
             Token::WhileLoop,
-            Token::OpenParen,
             Token::Boolean(false),
-            Token::CloseParen,
             Token::OpenBlock,
             Token::CloseBlock,
             Token::Identifier("print".to_string()),

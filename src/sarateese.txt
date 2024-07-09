@@ -1,11 +1,11 @@
 //project euler problem
 i64 target = 600851475143;
-while(target % i64(2) == 0){
+while target % i64(2) == 0 {
     target = target / 2;
 }
 i64 i = 3;
-while(i * i <= target){
-    while(target % i == 0){
+while i * i <= target{
+    while target % i == 0{
         target = target / i;
     }
     i = i + i64(2);
