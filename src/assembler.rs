@@ -29,7 +29,9 @@ pub fn get_buffer(statements: &VecDeque<Statement>, variable_map: HashMap<String
                                             llvm_statements.push_back(format!("call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([{} x i8], [{} x i8]* @{}, i32 0, i32 0))\n", variable_object.0.len() + 1, variable_object.0.len() + 1, name))
                                         },
                                         Type::I32 => {
-                                            llvm_statements.push_back(format!("call i32 (i8*, ...) @printf(i8* @var{}, i32 @{})\n", var_index, name))
+                                            llvm_statements.push_front(format!("@var{} = private constant [4 x i8] c\"%d\\0A\\00\"\n", var_index));
+                                            llvm_statements.push_back(format!("%{} = load i32, i32* @{}\n", name, name));
+                                            llvm_statements.push_back(format!("call i32 (i8*, ...) @printf(i8* @var{}, i32 %{})\n", var_index, name));
                                         },
                                         Type::I64 => todo!(),
                                         Type::F32 => todo!(),
@@ -248,6 +250,22 @@ mod test {
         );
         let actual = get_buffer(&statements, HashMap::new());
         let expected = fs::read_to_string("llvm_tests/print_i32.ll").expect("go fuck yourself").replace("\r", "");
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn print_i32_variable(){
+        let mut statements = VecDeque::new();
+        statements.push_back(
+            Statement::DefineVariable("a".to_string(), Expression::I32(888), Type::I32)
+        );
+        statements.push_back(
+            Statement::FunctionCall("print".to_owned(), vec![Expression::Variable("a".to_string())])
+        );
+        let mut variable_map: HashMap<String, (Primitive, Type)> = HashMap::new();
+        variable_map.insert("a".to_string(), (Primitive::I32(888), Type::I32));
+        let actual = get_buffer(&statements, variable_map);
+        let expected = fs::read_to_string("llvm_tests/print_i32_variable.ll").expect("go fuck yourself").replace("\r", "");
         assert_eq!(actual, expected);
     }
 }
