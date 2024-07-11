@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{eval::Primitive, parse::Function};
+use crate::{interpreter::Primitive, parse::Function};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Type {

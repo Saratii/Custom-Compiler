@@ -1,11 +1,11 @@
 use build_script::run;
 use compiler::Compiler;
 
-mod eval;
+mod interpreter;
 mod parse;
 mod tokenize;
 mod compiler;
-mod assembler;
+mod llvm_ir;
 pub mod build_script;
 
 fn main() {

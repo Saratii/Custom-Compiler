@@ -41,6 +41,7 @@ impl Primitive {
         }
     }
 }
+
 fn array_display_recusion(primitives: &Vec<Primitive>) -> String{
     let mut string = "[".to_string();
     for prim in primitives {
@@ -59,6 +60,7 @@ fn array_display_recusion(primitives: &Vec<Primitive>) -> String{
     string.push(']');
     return string
 }
+
 impl Compiler {
     pub fn interpret(&mut self, statements: &VecDeque<Statement>) {
         for i in 0..statements.len() {
@@ -325,7 +327,7 @@ impl Complete {
     }
 }
 impl Expression {
-    fn evaluate(&self, variables: &HashMap<String, (Primitive, Type)>) -> Primitive {
+    pub fn evaluate(&self, variables: &HashMap<String, (Primitive, Type)>) -> Primitive {
         match self {
             Expression::Array(value) => {
                 let mut array = Vec::new();
