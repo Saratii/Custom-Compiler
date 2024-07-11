@@ -28,6 +28,19 @@ impl std::fmt::Display for Primitive {
         }
     }
 }
+impl Primitive {
+    pub fn len(&self) -> usize{
+        match self{
+            Primitive::String(literal) => return literal.len(),
+            Primitive::I32(_) => todo!(),
+            Primitive::F32(_) => todo!(),
+            Primitive::I64(_) => todo!(),
+            Primitive::F64(_) => todo!(),
+            Primitive::Bool(_) => todo!(),
+            Primitive::Array(_) => todo!(),
+        }
+    }
+}
 fn array_display_recusion(primitives: &Vec<Primitive>) -> String{
     let mut string = "[".to_string();
     for prim in primitives {
@@ -47,7 +60,7 @@ fn array_display_recusion(primitives: &Vec<Primitive>) -> String{
     return string
 }
 impl Compiler {
-    pub fn evaluate(&mut self, statements: &VecDeque<Statement>) {
+    pub fn interpret(&mut self, statements: &VecDeque<Statement>) {
         for i in 0..statements.len() {
             self.evaluate_line(&statements[i as usize]);
         }
