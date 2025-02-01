@@ -2,8 +2,6 @@ use std::{collections::VecDeque, iter::Peekable};
 
 use regex::Regex;
 
-use crate::compiler::Compiler;
-
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
     Identifier(String),
@@ -49,258 +47,253 @@ pub enum MathOp {
     Not,
 }
 
-impl Compiler {
-    pub fn tokenize<'compiler>(&mut self, chars: &str) -> VecDeque<Token> {
-        let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
-        let binding = remove_comments_regex.replace_all(chars, "");
-        let mut chars_without_comments = binding.chars().peekable();
-        let mut tokens = VecDeque::new();
-        loop {
-            let token = self.scan_token(&mut chars_without_comments);
-            match token {
-                Some(token) => tokens.push_back(token.clone()),
-                None => break,
-            }
-        }
-        tokens.retain(|token| *token != Token::Ignore);
-        return tokens;
-    }
-    fn scan_token<'lexer>(
-        &mut self,
-        chars: &mut Peekable<std::str::Chars<'lexer>>,
-    ) -> Option<Token> {
-        loop {
-            match chars.peek() {
-                Some(&ch) => match ch {
-                    '0'..='9' => return Some(self.scan_numeric(chars)),
-                    'a'..='z' | 'A'..='Z' => return Some(self.scan_identity(chars)),
-                    ' ' | '\t' | '\n'| '\r' => {
-                        chars.next();
-                    }
-                    '[' => {
-                        chars.next();
-                        return Some(Token::OpenBracket);
-                    }
-                    ']' => {
-                        chars.next();
-                        return Some(Token::CloseBracket);
-                    }
-                    '<' => {
-                        chars.next();
-                        match chars.peek() {
-                            Some(chh) => match chh {
-                                '=' => {
-                                    chars.next();
-                                    return Some(Token::MathOp(MathOp::LessThanOrEqualTo));
-                                }
-                                _ => return Some(Token::MathOp(MathOp::LessThan)),
-                            },
-                            None => return None,
-                        }
-                    }
-                    '>' => {
-                        chars.next();
-                        match chars.peek() {
-                            Some(chh) => match chh {
-                                '=' => {
-                                    chars.next();
-                                    return Some(Token::MathOp(MathOp::GreaterThanOrEqualTo));
-                                }
-                                _ => return Some(Token::MathOp(MathOp::GreaterThan)),
-                            },
-                            None => return None,
-                        }
-                    }
-                    '!' => {
-                        chars.next();
-                        match chars.peek() {
-                            Some(chh) => match chh {
-                                '=' => {
-                                    chars.next();
-                                    return Some(Token::MathOp(MathOp::NotEqual));
-                                }
-                                _ => return Some(Token::MathOp(MathOp::Not)),
-                            },
-                            None => return None,
-                        }
-                    }
-                    '&' => {
-                        chars.next();
-                        match chars.peek() {
-                            Some(chh) => match chh {
-                                '&' => {
-                                    chars.next();
-                                    return Some(Token::MathOp(MathOp::And));
-                                },
-                                _ => return None
-                            },
-                            None => return None,
-                        }
-                    }
-                    '|' => {
-                        chars.next();
-                        match chars.peek() {
-                            Some(chh) => match chh {
-                                '|' => {
-                                    chars.next();
-                                    return Some(Token::MathOp(MathOp::Or));
-                                },
-                                _ => return None
-                            },
-                            None => return None,
-                        }
-                    }
-                    ',' => {
-                        chars.next();
-                        return Some(Token::Comma);
-                    }
-                    '"' => {
-                        chars.next();
-                        return Some(self.scan_string(chars));
-                    }
-                    '+' => {
-                        chars.next();
-                        match chars.peek() {
-                            Some(chh) => match chh {
-                                '+' => {
-                                    chars.next();
-                                    return Some(Token::Increment);
-                                }
-                                _ => return Some(Token::MathOp(MathOp::Add)),
-                            },
-                            None => return None,
-                        }
-                    }
-                    '/' => {
-                        chars.next();
-                        return Some(Token::MathOp(MathOp::Divide));
-                    }
-                    '*' => {
-                        chars.next();
-                        return Some(Token::MathOp(MathOp::Multiply));
-                    }
-                    '-' => {
-                        chars.next();
-                        match chars.peek() {
-                            Some(chh) => match chh {
-                                '-' => {
-                                    chars.next();
-                                    return Some(Token::Decrement);
-                                }
-                                _ => return Some(Token::MathOp(MathOp::Subtract)),
-                            },
-                            None => return None,
-                        }
-                    }
-                    '%' => {
-                        chars.next();
-                        return Some(Token::MathOp(MathOp::Modulus));
-                    }
-                    '(' => {
-                        chars.next();
-                        return Some(Token::OpenParen);
-                    }
-                    ')' => {
-                        chars.next();
-                        return Some(Token::CloseParen);
-                    }
-                    ';' => {
-                        chars.next();
-                        return Some(Token::EndLine);
-                    }
-                    '{' => {
-                        chars.next();
-                        return Some(Token::OpenBlock);
-                    }
-                    '}' => {
-                        chars.next();
-                        return Some(Token::CloseBlock);
-                    }
-                    '=' => {
-                        chars.next();
-                        match chars.peek() {
-                            Some(chh) => match chh {
-                                '=' => {
-                                    chars.next();
-                                    return Some(Token::MathOp(MathOp::Equals));
-                                }
-                                _ => return Some(Token::Assign),
-                            },
-                            None => return None,
-                        }
-                    }
-                    _ => {
-                        panic!("unexpected character: {}, error\n", ch)
-                    }
-                },
-                None => return None,
-            }
+pub fn tokenize(chars: &str) -> VecDeque<Token> {
+    let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
+    let binding = remove_comments_regex.replace_all(chars, "");
+    let mut chars_without_comments = binding.chars().peekable();
+    let mut tokens = VecDeque::new();
+    loop {
+        let token = scan_token(&mut chars_without_comments);
+        match token {
+            Some(token) => tokens.push_back(token.clone()),
+            None => break,
         }
     }
-    fn scan_identity<'lexer>(&mut self, chars: &mut Peekable<std::str::Chars<'lexer>>) -> Token {
-        let mut identifier = String::new();
-        while let Some(&ch) = chars.peek() {
-            match ch {
-                'a'..='z' | 'A'..='Z' | '_' | '0'..='9' | '<' | '>' => {
-                    identifier.push(ch);
+    tokens.retain(|token| *token != Token::Ignore);
+    return tokens;
+}
+fn scan_token(chars: &mut Peekable<std::str::Chars>) -> Option<Token> {
+    loop {
+        match chars.peek() {
+            Some(&ch) => match ch {
+                '0'..='9' => return Some(scan_numeric(chars)),
+                'a'..='z' | 'A'..='Z' => return Some(scan_identity(chars)),
+                ' ' | '\t' | '\n'| '\r' => {
                     chars.next();
                 }
-                _ => break,
-            }
-        }
-        match self.scan_keywords(&identifier) {
-            Some(token) => return token,
-            None => return Token::Identifier(identifier),
-        }
-    }
-    fn scan_keywords<'lexer>(&mut self, ident: &String) -> Option<Token> {
-        match ident.as_str() {
-            "while" => return Some(Token::WhileLoop),
-            "if" => return Some(Token::If),
-            "elif" => return Some(Token::Elif),
-            "else" => return Some(Token::Else),
-            "false" => return Some(Token::Boolean(false)),
-            "true" => return Some(Token::Boolean(true)),
-            "fn" => return Some(Token::DefineFunction),
-            "for" => return Some(Token::ForLoop),
-            _ => return None,
-        }
-    }
-    fn scan_numeric<'lexer>(&self, chars: &mut Peekable<std::str::Chars<'lexer>>) -> Token {
-        let mut number = String::new();
-        while let Some(&ch) = chars.peek() {
-            match ch {
-                '_' | '0'..='9' => {
-                    number.push(ch);
+                '[' => {
                     chars.next();
+                    return Some(Token::OpenBracket);
                 }
-                _ => break,
-            }
+                ']' => {
+                    chars.next();
+                    return Some(Token::CloseBracket);
+                }
+                '<' => {
+                    chars.next();
+                    match chars.peek() {
+                        Some(chh) => match chh {
+                            '=' => {
+                                chars.next();
+                                return Some(Token::MathOp(MathOp::LessThanOrEqualTo));
+                            }
+                            _ => return Some(Token::MathOp(MathOp::LessThan)),
+                        },
+                        None => return None,
+                    }
+                }
+                '>' => {
+                    chars.next();
+                    match chars.peek() {
+                        Some(chh) => match chh {
+                            '=' => {
+                                chars.next();
+                                return Some(Token::MathOp(MathOp::GreaterThanOrEqualTo));
+                            }
+                            _ => return Some(Token::MathOp(MathOp::GreaterThan)),
+                        },
+                        None => return None,
+                    }
+                }
+                '!' => {
+                    chars.next();
+                    match chars.peek() {
+                        Some(chh) => match chh {
+                            '=' => {
+                                chars.next();
+                                return Some(Token::MathOp(MathOp::NotEqual));
+                            }
+                            _ => return Some(Token::MathOp(MathOp::Not)),
+                        },
+                        None => return None,
+                    }
+                }
+                '&' => {
+                    chars.next();
+                    match chars.peek() {
+                        Some(chh) => match chh {
+                            '&' => {
+                                chars.next();
+                                return Some(Token::MathOp(MathOp::And));
+                            },
+                            _ => return None
+                        },
+                        None => return None,
+                    }
+                }
+                '|' => {
+                    chars.next();
+                    match chars.peek() {
+                        Some(chh) => match chh {
+                            '|' => {
+                                chars.next();
+                                return Some(Token::MathOp(MathOp::Or));
+                            },
+                            _ => return None
+                        },
+                        None => return None,
+                    }
+                }
+                ',' => {
+                    chars.next();
+                    return Some(Token::Comma);
+                }
+                '"' => {
+                    chars.next();
+                    return Some(scan_string(chars));
+                }
+                '+' => {
+                    chars.next();
+                    match chars.peek() {
+                        Some(chh) => match chh {
+                            '+' => {
+                                chars.next();
+                                return Some(Token::Increment);
+                            }
+                            _ => return Some(Token::MathOp(MathOp::Add)),
+                        },
+                        None => return None,
+                    }
+                }
+                '/' => {
+                    chars.next();
+                    return Some(Token::MathOp(MathOp::Divide));
+                }
+                '*' => {
+                    chars.next();
+                    return Some(Token::MathOp(MathOp::Multiply));
+                }
+                '-' => {
+                    chars.next();
+                    match chars.peek() {
+                        Some(chh) => match chh {
+                            '-' => {
+                                chars.next();
+                                return Some(Token::Decrement);
+                            }
+                            _ => return Some(Token::MathOp(MathOp::Subtract)),
+                        },
+                        None => return None,
+                    }
+                }
+                '%' => {
+                    chars.next();
+                    return Some(Token::MathOp(MathOp::Modulus));
+                }
+                '(' => {
+                    chars.next();
+                    return Some(Token::OpenParen);
+                }
+                ')' => {
+                    chars.next();
+                    return Some(Token::CloseParen);
+                }
+                ';' => {
+                    chars.next();
+                    return Some(Token::EndLine);
+                }
+                '{' => {
+                    chars.next();
+                    return Some(Token::OpenBlock);
+                }
+                '}' => {
+                    chars.next();
+                    return Some(Token::CloseBlock);
+                }
+                '=' => {
+                    chars.next();
+                    match chars.peek() {
+                        Some(chh) => match chh {
+                            '=' => {
+                                chars.next();
+                                return Some(Token::MathOp(MathOp::Equals));
+                            }
+                            _ => return Some(Token::Assign),
+                        },
+                        None => return None,
+                    }
+                }
+                _ => {
+                    panic!("unexpected character: {}, error\n", ch)
+                }
+            },
+            None => return None,
         }
-        return Token::ConstantNumber(number);
-    }
-    fn scan_string<'lexer>(&mut self, chars: &mut Peekable<std::str::Chars<'lexer>>) -> Token {
-        let mut string = String::new();
-        while chars.peek() != Some(&'"') {
-            string.push(chars.peek().unwrap().clone());
-            chars.next();
-        }
-        chars.next();
-        return Token::String(string);
     }
 }
+fn scan_identity(chars: &mut Peekable<std::str::Chars>) -> Token {
+    let mut identifier = String::new();
+    while let Some(&ch) = chars.peek() {
+        match ch {
+            'a'..='z' | 'A'..='Z' | '_' | '0'..='9' | '<' | '>' => {
+                identifier.push(ch);
+                chars.next();
+            }
+            _ => break,
+        }
+    }
+    match scan_keywords(&identifier) {
+        Some(token) => return token,
+        None => return Token::Identifier(identifier),
+    }
+}
+fn scan_keywords(ident: &String) -> Option<Token> {
+    match ident.as_str() {
+        "while" => return Some(Token::WhileLoop),
+        "if" => return Some(Token::If),
+        "elif" => return Some(Token::Elif),
+        "else" => return Some(Token::Else),
+        "false" => return Some(Token::Boolean(false)),
+        "true" => return Some(Token::Boolean(true)),
+        "fn" => return Some(Token::DefineFunction),
+        "for" => return Some(Token::ForLoop),
+        _ => return None,
+    }
+}
+fn scan_numeric(chars: &mut Peekable<std::str::Chars>) -> Token {
+    let mut number = String::new();
+    while let Some(&ch) = chars.peek() {
+        match ch {
+            '_' | '0'..='9' => {
+                number.push(ch);
+                chars.next();
+            }
+            _ => break,
+        }
+    }
+    return Token::ConstantNumber(number);
+}
+fn scan_string(chars: &mut Peekable<std::str::Chars>) -> Token {
+    let mut string = String::new();
+    while chars.peek() != Some(&'"') {
+        string.push(chars.peek().unwrap().clone());
+        chars.next();
+    }
+    chars.next();
+    return Token::String(string);
+}
+
 
 #[cfg(test)]
 mod test {
 
-    use crate::tokenize::{Compiler, MathOp};
+    use crate::tokenizer::{tokenize, MathOp};
 
     use super::Token;
 
     #[test]
     fn hello_world() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("print(\"hello world\");");
+        let actual = tokenize("print(\"hello world\");");
         let expected = vec![
             Token::Identifier("print".to_string()),
             Token::OpenParen,
@@ -312,8 +305,7 @@ mod test {
     }
     #[test]
     fn integer_variable_test() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 eeebo = 6;");
+        let actual = tokenize("i32 eeebo = 6;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("eeebo".to_string()),
@@ -325,8 +317,7 @@ mod test {
     }
     #[test]
     fn string_variable_test() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("String beebo = \"carbon monoxide\";");
+        let actual = tokenize("String beebo = \"carbon monoxide\";");
         let expected = vec![
             Token::Identifier("String".to_string()),
             Token::Identifier("beebo".to_string()),
@@ -338,8 +329,7 @@ mod test {
     }
     #[test]
     fn bool_variable_test() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("Bool feefoo = false;");
+        let actual = tokenize("Bool feefoo = false;");
         let expected = vec![
             Token::Identifier("Bool".to_string()),
             Token::Identifier("feefoo".to_string()),
@@ -351,8 +341,7 @@ mod test {
     }
     #[test]
     fn i32_variable_test() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 furfu = 42;");
+        let actual = tokenize("i32 furfu = 42;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("furfu".to_string()),
@@ -364,8 +353,7 @@ mod test {
     }
     #[test]
     fn print_variable_test() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("Bool eee = true;\nprint(eee);");
+        let actual = tokenize("Bool eee = true;\nprint(eee);");
         let expected = vec![
             Token::Identifier("Bool".to_string()),
             Token::Identifier("eee".to_string()),
@@ -382,8 +370,7 @@ mod test {
     }
     #[test]
     fn print_string_variable() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("String ee = \"should?\";\nprint(ee);");
+        let actual = tokenize("String ee = \"should?\";\nprint(ee);");
         let expected = vec![
             Token::Identifier("String".to_string()),
             Token::Identifier("ee".to_string()),
@@ -400,8 +387,7 @@ mod test {
     }
     #[test]
     fn while_true() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("while (true){\nprint(6);\n}");
+        let actual = tokenize("while (true){\nprint(6);\n}");
         let expected = vec![
             Token::WhileLoop,
             Token::OpenParen,
@@ -419,8 +405,7 @@ mod test {
     }
     #[test]
     fn format_tab() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize(
+        let actual = tokenize(
             "
 i32 e = 6;
 while (true){
@@ -449,8 +434,7 @@ while (true){
     }
     #[test]
     fn change_variable() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 i = 0;\ni = 1;\nString e = \"hello\";\ne = \"bye\";\nBool yes = true;\nyes = false;");
+        let actual = tokenize("i32 i = 0;\ni = 1;\nString e = \"hello\";\ne = \"bye\";\nBool yes = true;\nyes = false;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
@@ -484,9 +468,7 @@ while (true){
     }
     #[test]
     fn simple_math() {
-        let mut compiler = Compiler::new();
-        let actual = compiler
-            .tokenize("i32 e = 4 + 3;\ni32 ee = 4 - 3;\ni32 eee = 8 / 2;\ni32 eeee = 8 * 2;");
+        let actual = tokenize("i32 e = 4 + 3;\ni32 ee = 4 - 3;\ni32 eee = 8 / 2;\ni32 eeee = 8 * 2;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
@@ -521,8 +503,7 @@ while (true){
     }
     #[test]
     fn multi_term_simple_math() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 foo = 3 + 5 / 4 * 68;");
+        let actual = tokenize("i32 foo = 3 + 5 / 4 * 68;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("foo".to_string()),
@@ -540,8 +521,7 @@ while (true){
     }
     #[test]
     fn print_equation() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("print(1 + 6);");
+        let actual = tokenize("print(1 + 6);");
         let expected = vec![
             Token::Identifier("print".to_string()),
             Token::OpenParen,
@@ -555,8 +535,7 @@ while (true){
     }
     #[test]
     fn variable_adding() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 e = 1;i32 ee = 2;print(e + ee);");
+        let actual = tokenize("i32 e = 1;i32 ee = 2;print(e + ee);");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
@@ -580,8 +559,7 @@ while (true){
     }
     #[test]
     fn basic_if() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 e = 6;if(e == 6){print(e);}");
+        let actual = tokenize("i32 e = 6;if(e == 6){print(e);}");
         let expected: Vec<Token> = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
@@ -606,8 +584,7 @@ while (true){
     }
     #[test]
     fn for_loop() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("for(i32 i = 0, i < 10, i++){\nprint(i);\n}");
+        let actual = tokenize("for(i32 i = 0, i < 10, i++){\nprint(i);\n}");
         let expected = vec![
             Token::ForLoop,
             Token::OpenParen,
@@ -635,8 +612,7 @@ while (true){
     }
     #[test]
     fn double_if() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("if(true){if(false){print(\"a\");}}");
+        let actual = tokenize("if(true){if(false){print(\"a\");}}");
         let expected = vec![
             Token::If,
             Token::OpenParen,
@@ -660,8 +636,7 @@ while (true){
     }
     #[test]
     fn basic_comment() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 i = 10;\n//i32 e = 9;\ni32 g = 8;");
+        let actual = tokenize("i32 i = 10;\n//i32 e = 9;\ni32 g = 8;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
@@ -678,8 +653,7 @@ while (true){
     }
     #[test]
     fn multi_line_comment() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 i = 10;\n/*unga\nbunga\nwunga\n*/i32 e = 0;");
+        let actual = tokenize("i32 i = 10;\n/*unga\nbunga\nwunga\n*/i32 e = 0;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
@@ -696,8 +670,7 @@ while (true){
     }
     #[test]
     fn else_elif_test() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("if(i == 6){}elif(i == 7){}else{print(\"e\");}");
+        let actual = tokenize("if(i == 6){}elif(i == 7){}else{print(\"e\");}");
         let expected = vec![
             Token::If,
             Token::OpenParen,
@@ -728,8 +701,7 @@ while (true){
     }
     #[test]
     fn i32_i64_f32_f64() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("i32 i = 31;i64 e = 63;f32 f = 32; f64 g = 64;");
+        let actual = tokenize("i32 i = 31;i64 e = 63;f32 f = 32; f64 g = 64;");
         let expected = vec![
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
@@ -756,8 +728,7 @@ while (true){
     }
     #[test]
     fn one_dim_array() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("Array<i32> a = [];Array<i64> b=[100, 200];");
+        let actual = tokenize("Array<i32> a = [];Array<i64> b=[100, 200];");
         let expected = vec![
             Token::Identifier("Array<i32>".to_string()),
             Token::Identifier("a".to_string()),
@@ -779,8 +750,7 @@ while (true){
     }
     #[test]
     fn define_function() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("fn pwint(){print(\"i\");}pwint();");
+        let actual = tokenize("fn pwint(){print(\"i\");}pwint();");
         let expected = vec![
             Token::DefineFunction,
             Token::Identifier("pwint".to_string()),
@@ -802,8 +772,7 @@ while (true){
     }
     #[test]
     fn complex_logic() {
-        let mut compiler = Compiler::new();
-        let actual = compiler.tokenize("print((false || true) && true);");
+        let actual = tokenize("print((false || true) && true);");
         let expected = vec![
             Token::Identifier("print".to_string()),
             Token::OpenParen,

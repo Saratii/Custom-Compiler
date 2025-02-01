@@ -1,5 +1,14 @@
 Welcome to Sarateese!
 
+First off all code must be defined in a block.
+Blocks need to be labeled with an ID.
+Blocks can optionally requiure other blocks to run before them.
+
+requires[1, 2, 3] //optional
+block 4 {
+    print("hello world");
+}
+
 PRINT
 print([expression]);
 ex.
@@ -43,7 +52,7 @@ if(a){
 }
 
 FOR
-#warning no variable scope cause is hawd 👉👈🥺
+#warning no variable scope cause is hard 👉👈🥺
 for([variable type] [variable name] = [initial value], [expression -> condition], [increment]){
     [lines to be executed]
 }

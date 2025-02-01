@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 
 use crate::{
     compiler::{Compiler, Type},
-    tokenize::{MathOp, Token},
+    tokenizer::{MathOp, Token},
 };
 #[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
@@ -536,7 +536,7 @@ mod test {
     use crate::{
         compiler::Compiler,
         parse::{BinaryOperator, Complete, Expression},
-        tokenize::{MathOp, Token},
+        tokenizer::{MathOp, Token},
     };
     use std::collections::VecDeque;
     #[test]
