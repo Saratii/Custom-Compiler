@@ -1,7 +1,7 @@
-# Custom-Compiler
+#Sarateese
 
 This is a interpreter and partial compiler that interprets my own language [Sarateese]
-Sarateese is a language composed of my favorite parts of java, rust, and python!
+Sarateese is a language with simplified rust syntax that focuses on parallelism.
 View the DOCS txt to see examples of Sarateese code.
 To run Sarateese pass the file name as a command line parameter, optionally with -v or -vv.
 

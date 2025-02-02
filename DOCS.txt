@@ -52,7 +52,6 @@ if(a){
 }
 
 FOR
-#warning no variable scope cause is hard 👉👈🥺
 for([variable type] [variable name] = [initial value], [expression -> condition], [increment]){
     [lines to be executed]
 }
