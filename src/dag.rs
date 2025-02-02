@@ -24,10 +24,10 @@ fn build_children_map(dag: &HashMap<usize, TokenBlock>) -> HashMap<usize, Vec<us
     for &id in dag.keys() {
         children_map.insert(id, Vec::new());
     }
-    for (&id, block) in dag.iter() {
+    for (&_id, block) in dag.iter() {
         for required_id in block.requires.keys() {
             if let Some(vec) = children_map.get_mut(required_id) {
-                vec.push(id);
+                vec.push(block.id);
             }
         }
     }
@@ -35,7 +35,7 @@ fn build_children_map(dag: &HashMap<usize, TokenBlock>) -> HashMap<usize, Vec<us
 }
 
 pub fn print_dag(dag: &HashMap<usize, TokenBlock>) {
-    println!("{}DAG:{} ", GREEN, RESET);
+    println!("{}DAG:{}", GREEN, RESET);
     let children_map = build_children_map(dag);
     let mut child_ids = HashSet::new();
     for children in children_map.values() {
@@ -66,10 +66,10 @@ fn print_tree(
     printed: &mut HashSet<usize>,
 ) {
     if is_root {
-        println!("{}Block {}{}", GREEN, node, RESET);
+        println!("{}{}Block {}{}", GREEN, prefix, node, RESET);
     } else {
         let connector = if is_last { "└── " } else { "├── " };
-        println!("{}{}Block {}{}", prefix, connector, node, RESET);
+        println!("{}{}{}Block {}{}", GREEN, prefix, connector, node, RESET);
     }
     if printed.contains(&node) {
         return;
