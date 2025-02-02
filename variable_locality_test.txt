@@ -1,5 +1,5 @@
 block 1 {
-    i32 i = 2;
+    f32 i = 2.1;
 }
 
 requires[1[i]]

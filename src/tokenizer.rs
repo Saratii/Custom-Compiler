@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-
 use regex::Regex;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -50,12 +49,18 @@ pub enum MathOp {
 pub fn tokenize(text: &str) -> VecDeque<Token> {
     let comment_re = Regex::new(r"(?s)(//[^\n]*|/\*.*?\*/)").unwrap();
     let text = comment_re.replace_all(text, "");
-    let token_re = Regex::new(r#"(?P<String>"(?:\\.|[^"\\])*")|(?P<Number>\d+(?:_\d+)*)|(?P<Op>\+\+|--|==|!=|<=|>=|&&|\|\||[+\-*/%<>!])|(?P<Assign>=)|(?P<Comma>,)|(?P<Semicolon>;)|(?P<OpenParen>\()|(?P<CloseParen>\))|(?P<OpenBlock>\{)|(?P<CloseBlock>\})|(?P<OpenBracket>\[)|(?P<CloseBracket>\])|(?P<Identifier>[A-Za-z_][A-Za-z0-9_<>\?]*)|(?P<Whitespace>\s+)"#).unwrap();
+    let token_re = Regex::new(r#"(?P<String>"(?:\\.|[^"\\])*")|(?P<Number>\d+(?:_\d+)*(?:\.\d+(?:_\d+)*)?)|(?P<Op>\+\+|--|==|!=|<=|>=|&&|\|\||[+\-*/%<>!])|(?P<Assign>=)|(?P<Comma>,)|(?P<Semicolon>;)|(?P<OpenParen>\()|(?P<CloseParen>\))|(?P<OpenBlock>\{)|(?P<CloseBlock>\})|(?P<OpenBracket>\[)|(?P<CloseBracket>\])|(?P<Identifier>[A-Za-z_][A-Za-z0-9_<>\?]*)|(?P<Whitespace>\s+)"#).unwrap();
     let mut tokens = VecDeque::new();
     for cap in token_re.captures_iter(&text) {
         if cap.name("Whitespace").is_some() { continue; }
-        if let Some(m) = cap.name("String") { tokens.push_back(Token::String(m.as_str()[1..m.as_str().len()-1].to_string())); continue; }
-        if let Some(m) = cap.name("Number") { tokens.push_back(Token::ConstantNumber(m.as_str().replace("_", ""))); continue; }
+        if let Some(m) = cap.name("String") {
+            tokens.push_back(Token::String(m.as_str()[1..m.as_str().len()-1].to_string()));
+            continue;
+        }
+        if let Some(m) = cap.name("Number") {
+            tokens.push_back(Token::ConstantNumber(m.as_str().replace("_", "")));
+            continue;
+        }
         if let Some(m) = cap.name("Op") {
             let op = m.as_str();
             let token = match op {
@@ -80,15 +85,42 @@ pub fn tokenize(text: &str) -> VecDeque<Token> {
             tokens.push_back(token);
             continue;
         }
-        if cap.name("Assign").is_some() { tokens.push_back(Token::Assign); continue; }
-        if cap.name("Comma").is_some() { tokens.push_back(Token::Comma); continue; }
-        if cap.name("Semicolon").is_some() { tokens.push_back(Token::EndLine); continue; }
-        if cap.name("OpenParen").is_some() { tokens.push_back(Token::OpenParen); continue; }
-        if cap.name("CloseParen").is_some() { tokens.push_back(Token::CloseParen); continue; }
-        if cap.name("OpenBlock").is_some() { tokens.push_back(Token::OpenBlock); continue; }
-        if cap.name("CloseBlock").is_some() { tokens.push_back(Token::CloseBlock); continue; }
-        if cap.name("OpenBracket").is_some() { tokens.push_back(Token::OpenBracket); continue; }
-        if cap.name("CloseBracket").is_some() { tokens.push_back(Token::CloseBracket); continue; }
+        if cap.name("Assign").is_some() {
+            tokens.push_back(Token::Assign);
+            continue;
+        }
+        if cap.name("Comma").is_some() {
+            tokens.push_back(Token::Comma);
+            continue;
+        }
+        if cap.name("Semicolon").is_some() {
+            tokens.push_back(Token::EndLine);
+            continue;
+        }
+        if cap.name("OpenParen").is_some() {
+            tokens.push_back(Token::OpenParen);
+            continue;
+        }
+        if cap.name("CloseParen").is_some() {
+            tokens.push_back(Token::CloseParen);
+            continue;
+        }
+        if cap.name("OpenBlock").is_some() {
+            tokens.push_back(Token::OpenBlock);
+            continue;
+        }
+        if cap.name("CloseBlock").is_some() {
+            tokens.push_back(Token::CloseBlock);
+            continue;
+        }
+        if cap.name("OpenBracket").is_some() {
+            tokens.push_back(Token::OpenBracket);
+            continue;
+        }
+        if cap.name("CloseBracket").is_some() {
+            tokens.push_back(Token::CloseBracket);
+            continue;
+        }
         if let Some(m) = cap.name("Identifier") {
             let id = m.as_str().to_string();
             let token = match id.as_str() {
@@ -610,6 +642,15 @@ while (true){
             Token::MathOp(MathOp::And),
             Token::Boolean(true),
             Token::CloseParen,
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn float_input_test() {
+        let actual = tokenize("3.1415;");
+        let expected = vec![
+            Token::ConstantNumber("3.1415".to_string()),
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
