@@ -44,7 +44,12 @@ pub fn parallel(dag: HashMap<usize, TokenBlock>, compiler: Arc<Compiler>, verbos
                 let now = Local::now();
                 if verbose {
                     let elapsed_ms = now.signed_duration_since(start_time).num_microseconds().unwrap_or(0) as f64 / 1000.0;
-                    println!("Block {} finished at {} ({:.3}ms)", id_copy, now.format("%H:%M:%S"), elapsed_ms);
+                    if elapsed_ms > 1000.0 {
+                        let elapsed_sec = elapsed_ms / 1000.0;
+                        println!("Block {} finished at {} ({:.3}s)", id_copy, now.format("%H:%M:%S"), elapsed_sec);
+                    } else {
+                        println!("Block {} finished at {} ({:.3}ms)", id_copy, now.format("%H:%M:%S"), elapsed_ms);
+                    }
                 }
             }));
         }
@@ -65,6 +70,11 @@ pub fn parallel(dag: HashMap<usize, TokenBlock>, compiler: Arc<Compiler>, verbos
     if verbose {
         let global_end = Local::now();
         let elapsed_ms = global_end.signed_duration_since(global_start).num_microseconds().unwrap_or(0) as f64 / 1000.0;
-        println!("{}Finished execution in {:.3}ms{}", PURPLE, elapsed_ms, RESET);
+        if elapsed_ms > 1000.0 {
+            let elapsed_sec = elapsed_ms / 1000.0;
+            println!("{}Finished execution in {:.3}s{}", PURPLE, elapsed_sec, RESET);
+        } else {
+            println!("{}Finished execution in {:.3}ms{}", PURPLE, elapsed_ms, RESET);
+        }
     }
 }
