@@ -5,30 +5,30 @@ use crate::{interpreter::{interpret, Primitive, Type}, parse::parse, token_block
 const PURPLE: &str = "\x1b[35m";
 const RESET: &str = "\x1b[0m";
 
-pub fn parallel(dag: HashMap<usize, TokenBlock>, verbose: bool) {
-    let master_variable_map: Arc<Mutex<HashMap<usize, HashMap<String, (Primitive, Type)>>>> =
+pub fn parallel(dag: HashMap<String, TokenBlock>, verbose: bool) {
+    let master_variable_map: Arc<Mutex<HashMap<String, HashMap<String, (Primitive, Type)>>>> =
         Arc::new(Mutex::new(HashMap::new()));
-    let mut in_deg: HashMap<usize, usize> = HashMap::new();
-    let mut children_map: HashMap<usize, Vec<usize>> = HashMap::new();
-    for (&id, block) in dag.iter() {
-        in_deg.insert(id, block.requires.len());
-        children_map.insert(id, Vec::new());
+    let mut in_deg: HashMap<String, usize> = HashMap::new();
+    let mut children_map: HashMap<String, Vec<String>> = HashMap::new();
+    for (id, block) in dag.iter() {
+        in_deg.insert(id.clone(), block.requires.len());
+        children_map.insert(id.clone(), Vec::new());
     }
-    for (&_id, block) in dag.iter() {
+    for (_id, block) in dag.iter() {
         for required_id in block.requires.keys() {
-            children_map.entry(*required_id).or_insert_with(Vec::new).push(block.id);
+            children_map.entry(required_id.clone()).or_insert_with(Vec::new).push(block.id.clone());
         }
     }
-    let in_degree: Arc<Mutex<HashMap<usize, usize>>> = Arc::new(Mutex::new(in_deg));
-    let children: Arc<Mutex<HashMap<usize, Vec<usize>>>> = Arc::new(Mutex::new(children_map));
+    let in_degree: Arc<Mutex<HashMap<String, usize>>> = Arc::new(Mutex::new(in_deg));
+    let children: Arc<Mutex<HashMap<String, Vec<String>>>> = Arc::new(Mutex::new(children_map));
     let dag = Arc::new(dag);
     let total_tasks = dag.len();
     let (tx, rx) = mpsc::channel();
     {
         let in_degree_lock = in_degree.lock().unwrap();
-        for (&id, &deg) in in_degree_lock.iter() {
+        for (id, &deg) in in_degree_lock.iter() {
             if deg == 0 {
-                tx.send(id).unwrap();
+                tx.send(id.clone()).unwrap();
             }
         }
     }
@@ -62,7 +62,7 @@ pub fn parallel(dag: HashMap<usize, TokenBlock>, verbose: bool) {
                     let local_variable_map = interpret(&mut statements, inherited_variable_map);
                     {
                         let mut master = master_var_map_clone.lock().unwrap();
-                        master.insert(task_id, local_variable_map);
+                        master.insert(task_id.clone(), local_variable_map);
                     }
                     let now = Local::now();
                     if verbose {
@@ -78,11 +78,11 @@ pub fn parallel(dag: HashMap<usize, TokenBlock>, verbose: bool) {
                         let mut in_deg_lock = in_degree_clone.lock().unwrap();
                         let children_map = children_clone.lock().unwrap();
                         if let Some(child_ids) = children_map.get(&task_id) {
-                            for &child in child_ids {
-                                if let Some(count) = in_deg_lock.get_mut(&child) {
+                            for child in child_ids {
+                                if let Some(count) = in_deg_lock.get_mut(child) {
                                     *count -= 1;
                                     if *count == 0 {
-                                        tx_inner.send(child).unwrap();
+                                        tx_inner.send(child.clone()).unwrap();
                                     }
                                 }
                             }

@@ -4,3 +4,4 @@ Error[3]: Block {} requires block {} which is not defined!
 Error[4]: Error reading file {}: {}
 Error[5]: Function: {} does not exist
 Error[6]: Variable {} does not exist
+Error[7]: Invalid block format

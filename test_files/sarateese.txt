@@ -1,4 +1,4 @@
-block 1 {
+block a {
     //project euler problem
     i64 target = 600851475143;
     while target % i64(2) == 0 {

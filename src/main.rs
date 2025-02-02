@@ -29,7 +29,7 @@ fn main() {
     let mut token_blocks = HashSet::new();
     for block in string_blocks {
         let (id, requires, content) = extract_block_meta(&block);
-        if !token_blocks.insert(TokenBlock::new(id, requires, tokenize(&content))) {
+        if !token_blocks.insert(TokenBlock::new(id.clone(), requires, tokenize(&content))) {
             panic!("{}Error[2]: Duplicate Block ID: {}{}", RED, id, RESET);
         }
     }

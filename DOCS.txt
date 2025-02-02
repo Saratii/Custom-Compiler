@@ -1,11 +1,11 @@
 Welcome to Sarateese!
 
 First off all code must be defined in a block.
-Blocks need to be labeled with an ID.
-Blocks can optionally requiure other blocks to run before them.
+Blocks need to be labeled with a unique identifier.
+Blocks can optionally requiure other blocks to run before them otherwise all blocks run in parallel.
+The requires tag as well as the variables tag are optional. 
 
-requires[1, 2, 3] //optional
-block 4 {
+block d requires[a[var1, var2], b, c]{
     print("hello world");
 }
 

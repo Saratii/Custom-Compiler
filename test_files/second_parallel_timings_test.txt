@@ -1,12 +1,12 @@
-block 1 {
+block a {
     sleep(10);
 }
 
-block 2 {
+block b {
     sleep(3);
 }
 
-requires[2]
-block 3 {
+
+block c requires[2] {
     sleep(2);
 }

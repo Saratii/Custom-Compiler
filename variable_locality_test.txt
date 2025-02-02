@@ -1,8 +1,0 @@
-block 1 {
-    f32 i = 2.1;
-}
-
-requires[1[i]]
-block 3 {
-    print(i);
-}
