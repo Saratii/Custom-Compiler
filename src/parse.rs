@@ -1,10 +1,7 @@
 use core::panic;
 use std::collections::VecDeque;
 
-use crate::{
-    compiler::{Compiler, Type},
-    tokenizer::{MathOp, Token},
-};
+use crate::{interpreter::Type, tokenizer::{MathOp, Token}};
 #[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
     DefineVariable(String, Expression, Type),
@@ -188,361 +185,355 @@ pub struct Function {
     pub name: String,
     pub block: VecDeque<Statement>,
 }
-impl Compiler {
-    pub fn parse(&self, tokens: &mut VecDeque<Token>) -> VecDeque<Statement> {
-        let mut statements = VecDeque::new();
-        while tokens.len() > 0 && tokens[0] != Token::CloseBlock {
-            statements.push_back(self.parse_next_statement(tokens));
-        }
-        statements
-    }
 
-    fn parse_next_statement(&self, tokens: &mut VecDeque<Token>) -> Statement {
-        let token_stream_0 = tokens.pop_front().unwrap();
-        match &token_stream_0 {
-            Token::Identifier(ident_1) => {
-                let token_stream_1 = tokens.pop_front().unwrap();
-                match &token_stream_1 {
-                    Token::Identifier(ident_2) => {
-                        let type_hint = self.parse_type_hint(ident_1);
-                        self.eat_token(tokens, Token::Assign);
-                        let expression = self.parse_expression(tokens, Some(type_hint.clone()));
-                        return Statement::DefineVariable(ident_2.clone(), expression, type_hint);
+pub fn parse(tokens: &mut VecDeque<Token>) -> VecDeque<Statement> {
+    let mut statements = VecDeque::new();
+    while tokens.len() > 0 && tokens[0] != Token::CloseBlock {
+        statements.push_back(parse_next_statement(tokens));
+    }
+    statements
+}
+
+fn parse_next_statement(tokens: &mut VecDeque<Token>) -> Statement {
+    let token_stream_0 = tokens.pop_front().unwrap();
+    match &token_stream_0 {
+        Token::Identifier(ident_1) => {
+            let token_stream_1 = tokens.pop_front().unwrap();
+            match &token_stream_1 {
+                Token::Identifier(ident_2) => {
+                    let type_hint = parse_type_hint(ident_1);
+                    eat_token(tokens, Token::Assign);
+                    let expression = parse_expression(tokens, Some(type_hint.clone()));
+                    return Statement::DefineVariable(ident_2.clone(), expression, type_hint);
+                }
+                Token::OpenParen => {
+                    let args = parse_function_args(tokens);
+                    eat_token(tokens, Token::EndLine);
+                    return Statement::FunctionCall(ident_1.clone(), args);
+                }
+                Token::MathOp(MathOp::LessThan) => {
+                    let token_stream_3 = tokens.pop_front().unwrap();
+                    match token_stream_3 {
+                        Token::Identifier(ident_3) => {
+                            let type_hint = parse_type_hint(ident_1);
+                            eat_token(tokens, Token::MathOp(MathOp::GreaterThan));
+                            let expression = parse_expression(tokens, None);
+                            return Statement::DefineVariable(
+                                ident_3.clone(),
+                                expression,
+                                type_hint,
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected token: {:?}", token_stream_3)
+                        }
                     }
+                }
+                Token::Increment => {
+                    let next_token = tokens.pop_front().unwrap();
+                    match next_token {
+                        Token::EndLine => {}
+                        Token::CloseParen => {
+                            tokens.push_front(next_token);
+                        }
+                        _ => {
+                            panic!("unexpected token {:?}", next_token)
+                        }
+                    }
+                    return Statement::ModifyVariable(ident_1.clone(), Expression::Increment);
+                }
+                Token::Decrement => {
+                    let next_token = tokens.pop_front().unwrap();
+                    match next_token {
+                        Token::EndLine => {}
+                        Token::CloseParen => {
+                            tokens.push_front(next_token);
+                        }
+                        _ => {
+                            panic!("unexpected token {:?}", next_token)
+                        }
+                    }
+                    return Statement::ModifyVariable(ident_1.clone(), Expression::Decrement);
+                }
+                Token::Assign => {
+                    let expression = parse_expression(tokens, None);
+                    return Statement::ModifyVariable(ident_1.clone(), expression);
+                }
+                _ => {
+                    panic!("Unexpected token {:?}", token_stream_1)
+                }
+            }
+        }
+        Token::If => {
+            let condition = parse_expression(tokens, None);
+            eat_token(tokens, Token::OpenBlock);
+            let body = parse(tokens);
+            eat_token(tokens, Token::CloseBlock);
+            let mut elifs = VecDeque::new();
+            while tokens.len() > 0 && tokens[0] == Token::Elif {
+                eat_token(tokens, Token::Elif);
+                let elif_condition = parse_expression(tokens, None);
+                eat_token(tokens, Token::OpenBlock);
+                let elif_body = parse(tokens);
+                eat_token(tokens, Token::CloseBlock);
+                elifs.push_back(Statement::Elif(elif_condition, elif_body));
+            }
+            let mut else_body = None;
+            if tokens.len() > 0 && tokens[0] == Token::Else {
+                eat_token(tokens, Token::Else);
+                eat_token(tokens, Token::OpenBlock);
+                else_body = Some(parse(tokens));
+                eat_token(tokens, Token::CloseBlock);
+            }
+            return Statement::If(condition, body, elifs, else_body);
+        }
+        Token::ForLoop => {
+            eat_token(tokens, Token::OpenParen);
+            let variable = parse_next_statement(tokens);
+            let condition = parse_expression(tokens, None);
+            let increment = parse_next_statement(tokens);
+            eat_token(tokens, Token::CloseParen);
+            eat_token(tokens, Token::OpenBlock);
+            let block = parse(tokens);
+            return Statement::ForLoop(
+                Box::new(variable),
+                condition,
+                Box::new(increment),
+                block,
+            );
+        }
+        Token::WhileLoop => {
+            let condition = parse_expression(tokens, None);
+            eat_token(tokens, Token::OpenBlock);
+            let block = parse(tokens);
+            eat_token(tokens, Token::CloseBlock);
+            return Statement::WhileLoop(condition, block);
+        }
+        _ => {
+            panic!(
+                "found {:?} trying to parse the start of a line",
+                token_stream_0
+            )
+        }
+    }
+}
+fn parse_expression(tokens: &mut VecDeque<Token>, expected_type: Option<Type>) -> Expression {
+    let mut stack: Vec<Expression> = Vec::new();
+    while tokens.len() > 0 {
+        match tokens.pop_front().unwrap() {
+            Token::ConstantNumber(value) => {
+                if expected_type == None {
+                    stack_helper(
+                        &mut stack,
+                        Expression::I32(value.parse::<i32>().unwrap()),
+                    );
+                } else {
+                    match expected_type.as_ref().unwrap() {
+                        Type::I32 => {
+                            stack_helper(
+                                &mut stack,
+                                Expression::I32(value.parse::<i32>().unwrap()),
+                            );
+                        }
+                        Type::I64 => {
+                            stack_helper(
+                                &mut stack,
+                                Expression::I64(value.parse::<i64>().unwrap()),
+                            );
+                        }
+                        Type::F32 => {
+                            stack_helper(
+                                &mut stack,
+                                Expression::F32(value.parse::<f32>().unwrap()),
+                            );
+                        }
+                        Type::F64 => {
+                            stack_helper(
+                                &mut stack,
+                                Expression::F64(value.parse::<f64>().unwrap()),
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Token::Identifier(name) => {
+                let next_token = tokens.pop_front().unwrap();
+                match next_token {
                     Token::OpenParen => {
-                        let args = self.parse_function_args(tokens);
-                        self.eat_token(tokens, Token::EndLine);
-                        return Statement::FunctionCall(ident_1.clone(), args);
-                    }
-                    Token::MathOp(MathOp::LessThan) => {
-                        let token_stream_3 = tokens.pop_front().unwrap();
-                        match token_stream_3 {
-                            Token::Identifier(ident_3) => {
-                                let type_hint = self.parse_type_hint(ident_1);
-                                self.eat_token(tokens, Token::MathOp(MathOp::GreaterThan));
-                                let expression = self.parse_expression(tokens, None);
-                                return Statement::DefineVariable(
-                                    ident_3.clone(),
-                                    expression,
-                                    type_hint,
-                                );
-                            }
-                            _ => {
-                                panic!("Unexpected token: {:?}", token_stream_3)
-                            }
-                        }
-                    }
-                    Token::Increment => {
-                        let next_token = tokens.pop_front().unwrap();
-                        match next_token {
-                            Token::EndLine => {}
-                            Token::CloseParen => {
-                                tokens.push_front(next_token);
-                            }
-                            _ => {
-                                panic!("unexpected token {:?}", next_token)
-                            }
-                        }
-                        return Statement::ModifyVariable(ident_1.clone(), Expression::Increment);
-                    }
-                    Token::Decrement => {
-                        let next_token = tokens.pop_front().unwrap();
-                        match next_token {
-                            Token::EndLine => {}
-                            Token::CloseParen => {
-                                tokens.push_front(next_token);
-                            }
-                            _ => {
-                                panic!("unexpected token {:?}", next_token)
-                            }
-                        }
-                        return Statement::ModifyVariable(ident_1.clone(), Expression::Decrement);
-                    }
-                    Token::Assign => {
-                        let expression = self.parse_expression(tokens, None);
-                        return Statement::ModifyVariable(ident_1.clone(), expression);
+                        let args = parse_function_args(tokens);
+                        stack_helper(&mut stack, Expression::FunctionCall(name, args));
                     }
                     _ => {
-                        panic!("Unexpected token {:?}", token_stream_1)
+                        tokens.push_front(next_token);
+                        stack_helper(&mut stack, Expression::Variable(name))
                     }
                 }
             }
-            Token::If => {
-                let condition = self.parse_expression(tokens, None);
-                self.eat_token(tokens, Token::OpenBlock);
-                let body = self.parse(tokens);
-                self.eat_token(tokens, Token::CloseBlock);
-                let mut elifs = VecDeque::new();
-                while tokens.len() > 0 && tokens[0] == Token::Elif {
-                    self.eat_token(tokens, Token::Elif);
-                    let elif_condition = self.parse_expression(tokens, None);
-                    self.eat_token(tokens, Token::OpenBlock);
-                    let elif_body = self.parse(tokens);
-                    self.eat_token(tokens, Token::CloseBlock);
-                    elifs.push_back(Statement::Elif(elif_condition, elif_body));
-                }
-                let mut else_body = None;
-                if tokens.len() > 0 && tokens[0] == Token::Else {
-                    self.eat_token(tokens, Token::Else);
-                    self.eat_token(tokens, Token::OpenBlock);
-                    else_body = Some(self.parse(tokens));
-                    self.eat_token(tokens, Token::CloseBlock);
-                }
-                return Statement::If(condition, body, elifs, else_body);
+            Token::String(literal) => {
+                stack_helper(&mut stack, Expression::String(literal))
             }
-            Token::ForLoop => {
-                self.eat_token(tokens, Token::OpenParen);
-                let variable = self.parse_next_statement(tokens);
-                let condition = self.parse_expression(tokens, None);
-                let increment = self.parse_next_statement(tokens);
-                self.eat_token(tokens, Token::CloseParen);
-                self.eat_token(tokens, Token::OpenBlock);
-                let block = self.parse(tokens);
-                return Statement::ForLoop(
-                    Box::new(variable),
-                    condition,
-                    Box::new(increment),
-                    block,
+            Token::Boolean(literal) => stack_helper(&mut stack, Expression::Bool(literal)),
+            Token::MathOp(opp) => {
+                stack.push(Expression::from(&opp));
+            }
+            Token::EndLine => return stack[0].clone(),
+            Token::CloseParen => {
+                tokens.push_front(Token::CloseParen);
+                return stack[0].clone();
+            }
+            Token::Comma => {
+                tokens.push_front(Token::Comma);
+                return stack[0].clone();
+            }
+            Token::CloseBracket => {
+                tokens.push_front(Token::CloseBracket);
+                return stack[0].clone();
+            }
+
+            Token::OpenParen => {
+                stack_helper(
+                    &mut stack,
+                    Expression::CompleteU(CompleteU {
+                        operator: UnaryOperator::Parenthesis,
+                        child: Box::new(parse_expression(tokens, None)),
+                    }),
                 );
+                eat_token(tokens, Token::CloseParen);
             }
-            Token::WhileLoop => {
-                let condition = self.parse_expression(tokens, None);
-                self.eat_token(tokens, Token::OpenBlock);
-                let block = self.parse(tokens);
-                self.eat_token(tokens, Token::CloseBlock);
-                return Statement::WhileLoop(condition, block);
+            Token::Increment => {
+                if tokens.len() > 0 {
+                    let next = tokens.pop_front().unwrap(); //eat ;
+                    match next {
+                        Token::EndLine => {}
+                        _ => tokens.push_front(next),
+                    }
+                }
+                return Expression::Increment;
             }
-            _ => {
-                panic!(
-                    "found {:?} trying to parse the start of a line",
-                    token_stream_0
-                )
+            Token::Decrement => {
+                if tokens.len() > 0 {
+                    let next = tokens.pop_front().unwrap(); //eat ;
+                    match next {
+                        Token::EndLine => {}
+                        _ => tokens.push_front(next),
+                    }
+                }
+                return Expression::Decrement;
             }
-        }
-    }
-    fn parse_expression(
-        &self,
-        tokens: &mut VecDeque<Token>,
-        expected_type: Option<Type>,
-    ) -> Expression {
-        let mut stack: Vec<Expression> = Vec::new();
-        while tokens.len() > 0 {
-            match tokens.pop_front().unwrap() {
-                Token::ConstantNumber(value) => {
-                    if expected_type == None {
-                        self.stack_helper(
-                            &mut stack,
-                            Expression::I32(value.parse::<i32>().unwrap()),
-                        );
-                    } else {
-                        match expected_type.as_ref().unwrap() {
-                            Type::I32 => {
-                                self.stack_helper(
-                                    &mut stack,
-                                    Expression::I32(value.parse::<i32>().unwrap()),
-                                );
-                            }
-                            Type::I64 => {
-                                self.stack_helper(
-                                    &mut stack,
-                                    Expression::I64(value.parse::<i64>().unwrap()),
-                                );
-                            }
-                            Type::F32 => {
-                                self.stack_helper(
-                                    &mut stack,
-                                    Expression::F32(value.parse::<f32>().unwrap()),
-                                );
-                            }
-                            Type::F64 => {
-                                self.stack_helper(
-                                    &mut stack,
-                                    Expression::F64(value.parse::<f64>().unwrap()),
-                                );
-                            }
+            Token::OpenBracket => {
+                let mut data = Vec::new();
+                if tokens[0] == Token::CloseBracket {
+                    eat_token(tokens, Token::CloseBracket);
+                    stack_helper(&mut stack, Expression::Array(data))
+                } else {
+                    loop {
+                        data.push(parse_expression(tokens, None));
+                        let next_token = tokens.pop_front().unwrap();
+                        match next_token {
+                            Token::CloseBracket => break,
                             _ => {}
                         }
                     }
-                }
-                Token::Identifier(name) => {
-                    let next_token = tokens.pop_front().unwrap();
-                    match next_token {
-                        Token::OpenParen => {
-                            let args = self.parse_function_args(tokens);
-                            self.stack_helper(&mut stack, Expression::FunctionCall(name, args));
-                        }
-                        _ => {
-                            tokens.push_front(next_token);
-                            self.stack_helper(&mut stack, Expression::Variable(name))
-                        }
-                    }
-                }
-                Token::String(literal) => {
-                    self.stack_helper(&mut stack, Expression::String(literal))
-                }
-                Token::Boolean(literal) => self.stack_helper(&mut stack, Expression::Bool(literal)),
-                Token::MathOp(opp) => {
-                    stack.push(Expression::from(&opp));
-                }
-                Token::EndLine => return stack[0].clone(),
-                Token::CloseParen => {
-                    tokens.push_front(Token::CloseParen);
-                    return stack[0].clone();
-                }
-                Token::Comma => {
-                    tokens.push_front(Token::Comma);
-                    return stack[0].clone();
-                }
-                Token::CloseBracket => {
-                    tokens.push_front(Token::CloseBracket);
-                    return stack[0].clone();
-                }
-
-                Token::OpenParen => {
-                    self.stack_helper(
-                        &mut stack,
-                        Expression::CompleteU(CompleteU {
-                            operator: UnaryOperator::Parenthesis,
-                            child: Box::new(self.parse_expression(tokens, None)),
-                        }),
-                    );
-                    self.eat_token(tokens, Token::CloseParen);
-                }
-                Token::Increment => {
-                    if tokens.len() > 0 {
-                        let next = tokens.pop_front().unwrap(); //eat ;
-                        match next {
-                            Token::EndLine => {}
-                            _ => tokens.push_front(next),
-                        }
-                    }
-                    return Expression::Increment;
-                }
-                Token::Decrement => {
-                    if tokens.len() > 0 {
-                        let next = tokens.pop_front().unwrap(); //eat ;
-                        match next {
-                            Token::EndLine => {}
-                            _ => tokens.push_front(next),
-                        }
-                    }
-                    return Expression::Decrement;
-                }
-                Token::OpenBracket => {
-                    let mut data = Vec::new();
-                    if tokens[0] == Token::CloseBracket {
-                        self.eat_token(tokens, Token::CloseBracket);
-                        self.stack_helper(&mut stack, Expression::Array(data))
-                    } else {
-                        loop {
-                            data.push(self.parse_expression(tokens, None));
-                            let next_token = tokens.pop_front().unwrap();
-                            match next_token {
-                                Token::CloseBracket => break,
-                                _ => {}
-                            }
-                        }
-                        self.stack_helper(&mut stack, Expression::Array(data));
-                    }
-                }
-                Token::OpenBlock => {
-                    tokens.push_front(Token::OpenBlock);
-                    return stack[0].clone();
-                }
-                a => {
-                    panic!("Unexpected Token: {:?}", a)
+                    stack_helper(&mut stack, Expression::Array(data));
                 }
             }
+            Token::OpenBlock => {
+                tokens.push_front(Token::OpenBlock);
+                return stack[0].clone();
+            }
+            a => {
+                panic!("Unexpected Token: {:?}", a)
+            }
         }
-        return stack[0].clone();
     }
-    fn stack_helper(&self, stack: &mut Vec<Expression>, expression: Expression) {
-        let mut right = expression;
-        loop {
-            if stack.len() > 0 {
-                let operator = stack.pop().unwrap();
-                match operator {
-                    Expression::BinaryOperator(binary_operator) => {
-                        if stack.len() > 0 {
-                            let left = stack.pop().unwrap();
-                            right = Expression::Complete(
-                                Complete::from((&binary_operator, &left, &right))
-                                    .apply_precidence(),
-                            );
-                        } else {
-                            stack.push(Expression::BinaryOperator(binary_operator));
-                            stack.push(right);
-                            break;
-                        }
-                    }
-                    Expression::UnaryOperator(unary_operator) => {
-                        right = Expression::CompleteU(CompleteU {
-                            operator: unary_operator,
-                            child: Box::new(right),
-                        })
-                    }
-                    _ => {
-                        stack.push(operator);
+    return stack[0].clone();
+}
+fn stack_helper(stack: &mut Vec<Expression>, expression: Expression) {
+    let mut right = expression;
+    loop {
+        if stack.len() > 0 {
+            let operator = stack.pop().unwrap();
+            match operator {
+                Expression::BinaryOperator(binary_operator) => {
+                    if stack.len() > 0 {
+                        let left = stack.pop().unwrap();
+                        right = Expression::Complete(
+                            Complete::from((&binary_operator, &left, &right))
+                                .apply_precidence(),
+                        );
+                    } else {
+                        stack.push(Expression::BinaryOperator(binary_operator));
                         stack.push(right);
                         break;
                     }
                 }
-            } else {
-                stack.push(right);
-                break;
-            }
-        }
-    }
-
-    fn eat_token(&self, tokens: &mut VecDeque<Token>, expected: Token) {
-        if tokens.len() == 0 || tokens[0] != expected {
-            panic!("Tried to eat a {:?}, but found {:?}", expected, tokens);
-        }
-        tokens.pop_front();
-    }
-    fn parse_type_hint(&self, ident: &str) -> Type {
-        match ident {
-            "i32" => return Type::I32,
-            "i64" => return Type::I64,
-            "f32" => return Type::F32,
-            "f64" => return Type::F64,
-            "Bool" => return Type::Bool,
-            "String" => return Type::String,
-            thing => {
-                if thing.starts_with("Array<") {
-                    return Type::Array(Box::new(self.parse_type_hint(&thing[6..thing.len() - 1])));
+                Expression::UnaryOperator(unary_operator) => {
+                    right = Expression::CompleteU(CompleteU {
+                        operator: unary_operator,
+                        child: Box::new(right),
+                    })
                 }
-                panic!("unexpected type: {}", ident)
-            }
-        }
-    }
-    fn parse_function_args(&self, tokens: &mut VecDeque<Token>) -> Vec<Expression> {
-        let mut args = Vec::new();
-        loop {
-            let next_token = tokens.pop_front().unwrap();
-            match next_token {
-                Token::CloseParen => return args,
                 _ => {
-                    tokens.push_front(next_token);
-                    args.push(self.parse_expression(tokens, None))
+                    stack.push(operator);
+                    stack.push(right);
+                    break;
                 }
+            }
+        } else {
+            stack.push(right);
+            break;
+        }
+    }
+}
+
+fn eat_token(tokens: &mut VecDeque<Token>, expected: Token) {
+    if tokens.len() == 0 || tokens[0] != expected {
+        panic!("Tried to eat a {:?}, but found {:?}", expected, tokens);
+    }
+    tokens.pop_front();
+}
+fn parse_type_hint(ident: &str) -> Type {
+    match ident {
+        "i32" => return Type::I32,
+        "i64" => return Type::I64,
+        "f32" => return Type::F32,
+        "f64" => return Type::F64,
+        "Bool" => return Type::Bool,
+        "String" => return Type::String,
+        thing => {
+            if thing.starts_with("Array<") {
+                return Type::Array(Box::new(parse_type_hint(&thing[6..thing.len() - 1])));
+            }
+            panic!("unexpected type: {}", ident)
+        }
+    }
+}
+fn parse_function_args(tokens: &mut VecDeque<Token>) -> Vec<Expression> {
+    let mut args = Vec::new();
+    loop {
+        let next_token = tokens.pop_front().unwrap();
+        match next_token {
+            Token::CloseParen => return args,
+            _ => {
+                tokens.push_front(next_token);
+                args.push(parse_expression(tokens, None))
             }
         }
     }
 }
+
 #[cfg(test)]
 mod test {
     use super::{CompleteU, Statement, Type, UnaryOperator};
     use crate::{
-        compiler::Compiler,
-        parse::{BinaryOperator, Complete, Expression},
+        parse::{parse, parse_expression, BinaryOperator, Complete, Expression},
         tokenizer::{MathOp, Token},
     };
     use std::collections::VecDeque;
     #[test]
     fn hello_world() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("print".to_string()),
             Token::OpenParen,
             Token::String("hello world".to_string()),
@@ -557,8 +548,7 @@ mod test {
     }
     #[test]
     fn bool_test() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("Bool".to_string()),
             Token::Identifier("peepaw".to_string()),
             Token::Assign,
@@ -574,8 +564,7 @@ mod test {
     }
     #[test]
     fn print_variable_test() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("Bool".to_string()),
             Token::Identifier("eee".to_string()),
             Token::Assign,
@@ -598,8 +587,7 @@ mod test {
     }
     #[test]
     fn print_string_test() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("String".to_string()),
             Token::Identifier("ee".to_string()),
             Token::Assign,
@@ -626,8 +614,7 @@ mod test {
     }
     #[test]
     fn simple_while_loop() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::WhileLoop,
             Token::Boolean(true),
             Token::OpenBlock,
@@ -649,8 +636,7 @@ mod test {
     }
     #[test]
     fn change_variable() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
             Token::Assign,
@@ -695,8 +681,7 @@ mod test {
     }
     #[test]
     fn math_test() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
             Token::Assign,
@@ -730,8 +715,7 @@ mod test {
     }
     #[test]
     fn oop_test() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
             Token::Assign,
@@ -765,8 +749,7 @@ mod test {
     }
     #[test]
     fn simple_print_add() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("print".to_string()),
             Token::OpenParen,
             Token::ConstantNumber("1".to_string()),
@@ -787,8 +770,7 @@ mod test {
     }
     #[test]
     fn variable_adding() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
             Token::Assign,
@@ -823,8 +805,7 @@ mod test {
     }
     #[test]
     fn basic_if() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("e".to_string()),
             Token::Assign,
@@ -862,8 +843,7 @@ mod test {
     }
     #[test]
     fn for_loop() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::ForLoop,
             Token::OpenParen,
             Token::Identifier("i32".to_string()),
@@ -910,8 +890,7 @@ mod test {
     }
     #[test]
     fn double_if() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::If,
             Token::Boolean(true),
             Token::OpenBlock,
@@ -944,8 +923,7 @@ mod test {
     }
     #[test]
     fn more_if() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::If,
             Token::Boolean(true),
             Token::OpenBlock,
@@ -998,8 +976,7 @@ mod test {
     }
     #[test]
     fn increment_test() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("w".to_string()),
             Token::Assign,
@@ -1017,8 +994,7 @@ mod test {
     }
     #[test]
     fn if_elif_elif_else() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
             Token::Assign,
@@ -1080,8 +1056,7 @@ mod test {
     }
     #[test]
     fn i32_i64_f32_f64() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
             Token::Assign,
@@ -1113,8 +1088,7 @@ mod test {
     }
     #[test]
     fn f32_test() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("f32".to_string()),
             Token::Identifier("e".to_string()),
             Token::Assign,
@@ -1130,8 +1104,7 @@ mod test {
     }
     #[test]
     fn simple_cast() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i32".to_string()),
             Token::Identifier("i".to_string()),
             Token::Assign,
@@ -1161,8 +1134,7 @@ mod test {
     }
     #[test]
     fn cast_in_while() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i64".to_string()),
             Token::Identifier("i".to_string()),
             Token::Assign,
@@ -1196,8 +1168,7 @@ mod test {
     }
     #[test]
     fn statement_after_loop() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("i64".to_string()),
             Token::Identifier("i".to_string()),
             Token::Assign,
@@ -1234,8 +1205,7 @@ mod test {
             Token::MathOp(MathOp::Multiply),
             Token::ConstantNumber("3".to_string()),
         ]);
-        let compiler = Compiler::new();
-        let actual = compiler.parse_expression(&mut tokens, Some(Type::I32));
+        let actual = parse_expression(&mut tokens, Some(Type::I32));
         let expected = Expression::Complete(Complete {
             operator: BinaryOperator::Multiply,
             left: Box::new(Expression::CompleteU(CompleteU {
@@ -1261,8 +1231,7 @@ mod test {
             Token::ConstantNumber("6".to_string()),
             Token::CloseParen,
         ]);
-        let compiler = Compiler::new();
-        let actual = compiler.parse_expression(&mut tokens, Some(Type::I32));
+        let actual = parse_expression(&mut tokens, Some(Type::I32));
         let expected = Expression::Complete(Complete {
             operator: BinaryOperator::Multiply,
             left: Box::new(Expression::I32(3)),
@@ -1279,8 +1248,7 @@ mod test {
     }
     #[test]
     fn complex_print_1() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("print".to_string()),
             Token::OpenParen,
             Token::OpenParen,
@@ -1312,8 +1280,7 @@ mod test {
     }
     #[test]
     fn boolean_operators() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("print".to_string()),
             Token::OpenParen,
             Token::Boolean(false),
@@ -1370,8 +1337,7 @@ mod test {
     }
     #[test]
     fn one_dim_array() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("Array<i32>".to_string()),
             Token::Identifier("a".to_string()),
             Token::Assign,
@@ -1391,8 +1357,7 @@ mod test {
     }
     #[test]
     fn empty_one_dim_array() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("Array<String>".to_string()),
             Token::Identifier("a".to_string()),
             Token::Assign,
@@ -1409,8 +1374,7 @@ mod test {
     }
     #[test]
     fn empty_two_dim_array() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("Array<Array<String>>".to_string()),
             Token::Identifier("a".to_string()),
             Token::Assign,
@@ -1429,8 +1393,7 @@ mod test {
     }
     #[test]
     fn complex_logic() {
-        let compiler = Compiler::new();
-        let actual = compiler.parse(&mut VecDeque::from([
+        let actual = parse(&mut VecDeque::from([
             Token::Identifier("print".to_string()),
             Token::OpenParen,
             Token::OpenParen,

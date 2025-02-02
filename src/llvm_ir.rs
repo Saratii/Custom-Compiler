@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::{compiler::Type, interpreter::Primitive, parse::Statement};
+use crate::{interpreter::{Primitive, Type}, parse::Statement};
 
 pub fn get_buffer(statements: &VecDeque<Statement>, variable_map: HashMap<String, (Primitive, Type)>) -> String{
     let mut llvm_statements = VecDeque::new();
@@ -76,7 +76,7 @@ fn llvm_define_variable(llvm_statements: &mut VecDeque<String>, primitive: &Prim
 #[cfg(test)]
 mod test {
     use crate::{
-        llvm_ir::get_buffer, compiler::Type, interpreter::Primitive, parse::{Expression, Statement}
+        interpreter::{Primitive, Type}, llvm_ir::get_buffer, parse::{Expression, Statement}
     };
     use std::{collections::{HashMap, VecDeque}, fs};
     #[test]

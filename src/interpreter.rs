@@ -1,12 +1,20 @@
 use colored::Colorize;
 
-use crate::{
-    compiler::Type,
-    parse::{BinaryOperator, Complete, CompleteU, Expression, Statement, UnaryOperator},
-};
+use crate::parse::{BinaryOperator, Complete, CompleteU, Expression, Statement, UnaryOperator};
 
 const RED: &str = "\x1b[31m";
 const RESET: &str = "\x1b[0m";
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Type {
+    Bool,
+    String,
+    I32,
+    I64,
+    F32,
+    F64,
+    Array(Box<Type>),
+}
 
 use std::collections::{HashMap, VecDeque};
 #[derive(PartialEq, Debug, Clone)]

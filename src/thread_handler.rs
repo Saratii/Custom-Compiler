@@ -1,11 +1,11 @@
 use std::{collections::HashMap, sync::{Arc, Mutex, mpsc}, time::Duration};
 use chrono::Local;
-use crate::{compiler::{Compiler, Type}, interpreter::{interpret, Primitive}, token_block::TokenBlock};
+use crate::{interpreter::{interpret, Primitive, Type}, parse::parse, token_block::TokenBlock};
 
 const PURPLE: &str = "\x1b[35m";
 const RESET: &str = "\x1b[0m";
 
-pub fn parallel(dag: HashMap<usize, TokenBlock>, compiler: Arc<Compiler>, verbose: bool) {
+pub fn parallel(dag: HashMap<usize, TokenBlock>, verbose: bool) {
     let master_variable_map: Arc<Mutex<HashMap<usize, HashMap<String, (Primitive, Type)>>>> =
         Arc::new(Mutex::new(HashMap::new()));
     let mut in_deg: HashMap<usize, usize> = HashMap::new();
@@ -39,7 +39,6 @@ pub fn parallel(dag: HashMap<usize, TokenBlock>, compiler: Arc<Compiler>, verbos
             Ok(task_id) => {
                 let tx_inner = tx.clone();
                 let master_var_map_clone = Arc::clone(&master_variable_map);
-                let compiler_clone = Arc::clone(&compiler);
                 let in_degree_clone = Arc::clone(&in_degree);
                 let children_clone = Arc::clone(&children);
                 let dag_clone = Arc::clone(&dag);
@@ -50,8 +49,7 @@ pub fn parallel(dag: HashMap<usize, TokenBlock>, compiler: Arc<Compiler>, verbos
                         println!("Block {} starting at {}", task_id, start_time.format("%H:%M:%S"));
                     }
                     let block = dag_clone.get(&task_id).unwrap().clone();
-                    let local_compiler = (*compiler_clone).clone();
-                    let mut statements = local_compiler.parse(&mut block.tokens.clone());
+                    let mut statements = parse(&mut block.tokens.clone());
                     let mut inherited_variable_map = Vec::new();
                     for req_id in block.requires.keys() {
                         if block.requires[req_id].is_empty() {

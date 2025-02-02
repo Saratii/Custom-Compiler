@@ -1,5 +1,5 @@
 use std::{collections::{HashMap, VecDeque}, fs, path::Path, process::Command};
-use crate::{llvm_ir::get_buffer, compiler::Type, interpreter::Primitive, parse::Statement};
+use crate::{interpreter::{Primitive, Type}, llvm_ir::get_buffer, parse::Statement};
 
 pub fn run(statements: &VecDeque<Statement>, variable_map: HashMap<String, (Primitive, Type)>) {
     fs::write("build/llvm.ll", get_buffer(statements, variable_map)).expect("Unable to write file");
