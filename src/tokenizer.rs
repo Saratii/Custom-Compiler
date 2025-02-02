@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, iter::Peekable};
+use std::collections::VecDeque;
 
 use regex::Regex;
 
@@ -47,242 +47,68 @@ pub enum MathOp {
     Not,
 }
 
-pub fn tokenize(chars: &str) -> VecDeque<Token> {
-    let remove_comments_regex = Regex::new(r"(?:\/\/(.*)|\/\*((?:.|[\r\n])*?)\*\/)").unwrap();
-    let binding = remove_comments_regex.replace_all(chars, "");
-    let mut chars_without_comments = binding.chars().peekable();
+pub fn tokenize(text: &str) -> VecDeque<Token> {
+    let comment_re = Regex::new(r"(?s)(//[^\n]*|/\*.*?\*/)").unwrap();
+    let text = comment_re.replace_all(text, "");
+    let token_re = Regex::new(r#"(?P<String>"(?:\\.|[^"\\])*")|(?P<Number>\d+(?:_\d+)*)|(?P<Op>\+\+|--|==|!=|<=|>=|&&|\|\||[+\-*/%<>!])|(?P<Assign>=)|(?P<Comma>,)|(?P<Semicolon>;)|(?P<OpenParen>\()|(?P<CloseParen>\))|(?P<OpenBlock>\{)|(?P<CloseBlock>\})|(?P<OpenBracket>\[)|(?P<CloseBracket>\])|(?P<Identifier>[A-Za-z_][A-Za-z0-9_<>\?]*)|(?P<Whitespace>\s+)"#).unwrap();
     let mut tokens = VecDeque::new();
-    loop {
-        let token = scan_token(&mut chars_without_comments);
-        match token {
-            Some(token) => tokens.push_back(token.clone()),
-            None => break,
+    for cap in token_re.captures_iter(&text) {
+        if cap.name("Whitespace").is_some() { continue; }
+        if let Some(m) = cap.name("String") { tokens.push_back(Token::String(m.as_str()[1..m.as_str().len()-1].to_string())); continue; }
+        if let Some(m) = cap.name("Number") { tokens.push_back(Token::ConstantNumber(m.as_str().replace("_", ""))); continue; }
+        if let Some(m) = cap.name("Op") {
+            let op = m.as_str();
+            let token = match op {
+                "++" => Token::Increment,
+                "--" => Token::Decrement,
+                "+" => Token::MathOp(MathOp::Add),
+                "*" => Token::MathOp(MathOp::Multiply),
+                "/" => Token::MathOp(MathOp::Divide),
+                "-" => Token::MathOp(MathOp::Subtract),
+                "%" => Token::MathOp(MathOp::Modulus),
+                "==" => Token::MathOp(MathOp::Equals),
+                "!=" => Token::MathOp(MathOp::NotEqual),
+                "<" => Token::MathOp(MathOp::LessThan),
+                ">" => Token::MathOp(MathOp::GreaterThan),
+                "<=" => Token::MathOp(MathOp::LessThanOrEqualTo),
+                ">=" => Token::MathOp(MathOp::GreaterThanOrEqualTo),
+                "&&" => Token::MathOp(MathOp::And),
+                "||" => Token::MathOp(MathOp::Or),
+                "!" => Token::MathOp(MathOp::Not),
+                _ => Token::Ignore,
+            };
+            tokens.push_back(token);
+            continue;
+        }
+        if cap.name("Assign").is_some() { tokens.push_back(Token::Assign); continue; }
+        if cap.name("Comma").is_some() { tokens.push_back(Token::Comma); continue; }
+        if cap.name("Semicolon").is_some() { tokens.push_back(Token::EndLine); continue; }
+        if cap.name("OpenParen").is_some() { tokens.push_back(Token::OpenParen); continue; }
+        if cap.name("CloseParen").is_some() { tokens.push_back(Token::CloseParen); continue; }
+        if cap.name("OpenBlock").is_some() { tokens.push_back(Token::OpenBlock); continue; }
+        if cap.name("CloseBlock").is_some() { tokens.push_back(Token::CloseBlock); continue; }
+        if cap.name("OpenBracket").is_some() { tokens.push_back(Token::OpenBracket); continue; }
+        if cap.name("CloseBracket").is_some() { tokens.push_back(Token::CloseBracket); continue; }
+        if let Some(m) = cap.name("Identifier") {
+            let id = m.as_str().to_string();
+            let token = match id.as_str() {
+                "while" => Token::WhileLoop,
+                "if" => Token::If,
+                "elif" => Token::Elif,
+                "else" => Token::Else,
+                "for" => Token::ForLoop,
+                "fn" => Token::DefineFunction,
+                "true" => Token::Boolean(true),
+                "false" => Token::Boolean(false),
+                _ => Token::Identifier(id),
+            };
+            tokens.push_back(token);
+            continue;
         }
     }
-    tokens.retain(|token| *token != Token::Ignore);
-    return tokens;
+    tokens.retain(|t| *t != Token::Ignore);
+    tokens
 }
-fn scan_token(chars: &mut Peekable<std::str::Chars>) -> Option<Token> {
-    loop {
-        match chars.peek() {
-            Some(&ch) => match ch {
-                '0'..='9' => return Some(scan_numeric(chars)),
-                'a'..='z' | 'A'..='Z' => return Some(scan_identity(chars)),
-                ' ' | '\t' | '\n'| '\r' => {
-                    chars.next();
-                }
-                '[' => {
-                    chars.next();
-                    return Some(Token::OpenBracket);
-                }
-                ']' => {
-                    chars.next();
-                    return Some(Token::CloseBracket);
-                }
-                '<' => {
-                    chars.next();
-                    match chars.peek() {
-                        Some(chh) => match chh {
-                            '=' => {
-                                chars.next();
-                                return Some(Token::MathOp(MathOp::LessThanOrEqualTo));
-                            }
-                            _ => return Some(Token::MathOp(MathOp::LessThan)),
-                        },
-                        None => return None,
-                    }
-                }
-                '>' => {
-                    chars.next();
-                    match chars.peek() {
-                        Some(chh) => match chh {
-                            '=' => {
-                                chars.next();
-                                return Some(Token::MathOp(MathOp::GreaterThanOrEqualTo));
-                            }
-                            _ => return Some(Token::MathOp(MathOp::GreaterThan)),
-                        },
-                        None => return None,
-                    }
-                }
-                '!' => {
-                    chars.next();
-                    match chars.peek() {
-                        Some(chh) => match chh {
-                            '=' => {
-                                chars.next();
-                                return Some(Token::MathOp(MathOp::NotEqual));
-                            }
-                            _ => return Some(Token::MathOp(MathOp::Not)),
-                        },
-                        None => return None,
-                    }
-                }
-                '&' => {
-                    chars.next();
-                    match chars.peek() {
-                        Some(chh) => match chh {
-                            '&' => {
-                                chars.next();
-                                return Some(Token::MathOp(MathOp::And));
-                            },
-                            _ => return None
-                        },
-                        None => return None,
-                    }
-                }
-                '|' => {
-                    chars.next();
-                    match chars.peek() {
-                        Some(chh) => match chh {
-                            '|' => {
-                                chars.next();
-                                return Some(Token::MathOp(MathOp::Or));
-                            },
-                            _ => return None
-                        },
-                        None => return None,
-                    }
-                }
-                ',' => {
-                    chars.next();
-                    return Some(Token::Comma);
-                }
-                '"' => {
-                    chars.next();
-                    return Some(scan_string(chars));
-                }
-                '+' => {
-                    chars.next();
-                    match chars.peek() {
-                        Some(chh) => match chh {
-                            '+' => {
-                                chars.next();
-                                return Some(Token::Increment);
-                            }
-                            _ => return Some(Token::MathOp(MathOp::Add)),
-                        },
-                        None => return None,
-                    }
-                }
-                '/' => {
-                    chars.next();
-                    return Some(Token::MathOp(MathOp::Divide));
-                }
-                '*' => {
-                    chars.next();
-                    return Some(Token::MathOp(MathOp::Multiply));
-                }
-                '-' => {
-                    chars.next();
-                    match chars.peek() {
-                        Some(chh) => match chh {
-                            '-' => {
-                                chars.next();
-                                return Some(Token::Decrement);
-                            }
-                            _ => return Some(Token::MathOp(MathOp::Subtract)),
-                        },
-                        None => return None,
-                    }
-                }
-                '%' => {
-                    chars.next();
-                    return Some(Token::MathOp(MathOp::Modulus));
-                }
-                '(' => {
-                    chars.next();
-                    return Some(Token::OpenParen);
-                }
-                ')' => {
-                    chars.next();
-                    return Some(Token::CloseParen);
-                }
-                ';' => {
-                    chars.next();
-                    return Some(Token::EndLine);
-                }
-                '{' => {
-                    chars.next();
-                    return Some(Token::OpenBlock);
-                }
-                '}' => {
-                    chars.next();
-                    return Some(Token::CloseBlock);
-                }
-                '=' => {
-                    chars.next();
-                    match chars.peek() {
-                        Some(chh) => match chh {
-                            '=' => {
-                                chars.next();
-                                return Some(Token::MathOp(MathOp::Equals));
-                            }
-                            _ => return Some(Token::Assign),
-                        },
-                        None => return None,
-                    }
-                }
-                _ => {
-                    panic!("unexpected character: {}, error\n", ch)
-                }
-            },
-            None => return None,
-        }
-    }
-}
-fn scan_identity(chars: &mut Peekable<std::str::Chars>) -> Token {
-    let mut identifier = String::new();
-    while let Some(&ch) = chars.peek() {
-        match ch {
-            'a'..='z' | 'A'..='Z' | '_' | '0'..='9' | '<' | '>' => {
-                identifier.push(ch);
-                chars.next();
-            }
-            _ => break,
-        }
-    }
-    match scan_keywords(&identifier) {
-        Some(token) => return token,
-        None => return Token::Identifier(identifier),
-    }
-}
-fn scan_keywords(ident: &String) -> Option<Token> {
-    match ident.as_str() {
-        "while" => return Some(Token::WhileLoop),
-        "if" => return Some(Token::If),
-        "elif" => return Some(Token::Elif),
-        "else" => return Some(Token::Else),
-        "false" => return Some(Token::Boolean(false)),
-        "true" => return Some(Token::Boolean(true)),
-        "fn" => return Some(Token::DefineFunction),
-        "for" => return Some(Token::ForLoop),
-        _ => return None,
-    }
-}
-fn scan_numeric(chars: &mut Peekable<std::str::Chars>) -> Token {
-    let mut number = String::new();
-    while let Some(&ch) = chars.peek() {
-        match ch {
-            '_' | '0'..='9' => {
-                number.push(ch);
-                chars.next();
-            }
-            _ => break,
-        }
-    }
-    return Token::ConstantNumber(number);
-}
-fn scan_string(chars: &mut Peekable<std::str::Chars>) -> Token {
-    let mut string = String::new();
-    while chars.peek() != Some(&'"') {
-        string.push(chars.peek().unwrap().clone());
-        chars.next();
-    }
-    chars.next();
-    return Token::String(string);
-}
-
 
 #[cfg(test)]
 mod test {
