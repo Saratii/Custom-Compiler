@@ -1,0 +1,7 @@
+block 1 {
+    i32 i = 2;
+}
+
+block 2 {
+    print(i);
+}

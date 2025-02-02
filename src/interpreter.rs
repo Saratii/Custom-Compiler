@@ -354,7 +354,7 @@ impl Expression {
             Expression::Variable(name) => match variables.get(name) {
                 Some((value, _)) => value.clone(),
                 None => {
-                    let error_message = format!("ST:DNE -> Variable name: {} does not exist", name);
+                    let error_message = format!("{}Error[6]: Variable {} does not exist{}", RED, name, RESET);
                     panic!("{}", error_message.purple());
                 }
             },
