@@ -15,15 +15,15 @@ ex.
 print("hello world"); -> hello world
 print(1 + 1); -> 2
 print(1 + 1 == 2); -> True
-i32 a = 5;
+let a: i32 = 5;
 print(a); -> 5
 
 VARIABLES
 [variable type] [variable name] = [value];
 ex.
-String s = "hello world";
-i32 eleven = 11;
-Bool red = false;
+let s: String = "hello world";
+let eleven: i32 = 11;
+let red: Bool = false;
 
 WHILE
 while([expression -> condition]){
@@ -46,7 +46,7 @@ ex.
 if(true){
     print("foo");
 }
-Bool a = true;
+let a: Bool = true;
 if(a){
     print("bar");
 }
@@ -56,7 +56,7 @@ for([variable type] [variable name] = [initial value], [expression -> condition]
     [lines to be executed]
 }
 ex.
-for(i32 i = 0; i < 10; i++){
+for(let i: i32 = 0; i < 10; i++){
     print(i); -> 0 1 2 3 4 5 6 7 8 9
 }
 
@@ -87,7 +87,7 @@ a || b
 a && b
 
 MULTIDIMENSIONAL ARRAYS
-Array<Array<i32>> a = [[1, 2, 3], [1, 2, 3]]
+let a: Array<Array<i32>> = [[1, 2, 3], [1, 2, 3]]
 
 SLEEP: pause block execution for n seconds. 
 sleep(x: int)

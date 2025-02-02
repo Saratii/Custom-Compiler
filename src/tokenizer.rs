@@ -26,6 +26,8 @@ pub enum Token {
     CloseBracket,
     DefineFunction,
     Assign,
+    Let,
+    Colon,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -49,7 +51,7 @@ pub enum MathOp {
 pub fn tokenize(text: &str) -> VecDeque<Token> {
     let comment_re = Regex::new(r"(?s)(//[^\n]*|/\*.*?\*/)").unwrap();
     let text = comment_re.replace_all(text, "");
-    let token_re = Regex::new(r#"(?P<String>"(?:\\.|[^"\\])*")|(?P<Number>\d+(?:_\d+)*(?:\.\d+(?:_\d+)*)?)|(?P<Op>\+\+|--|==|!=|<=|>=|&&|\|\||[+\-*/%<>!])|(?P<Assign>=)|(?P<Comma>,)|(?P<Semicolon>;)|(?P<OpenParen>\()|(?P<CloseParen>\))|(?P<OpenBlock>\{)|(?P<CloseBlock>\})|(?P<OpenBracket>\[)|(?P<CloseBracket>\])|(?P<Identifier>[A-Za-z_][A-Za-z0-9_<>\?]*)|(?P<Whitespace>\s+)"#).unwrap();
+    let token_re = Regex::new(r#"(?P<String>"(?:\\.|[^"\\])*")|(?P<Number>\d+(?:_\d+)*(?:\.\d+(?:_\d+)*)?)|(?P<Op>\+\+|--|==|!=|<=|>=|&&|\|\||[+\-*/%<>!])|(?P<Assign>=)|(?P<Comma>,)|(?P<Colon>:)|(?P<Semicolon>;)|(?P<OpenParen>\()|(?P<CloseParen>\))|(?P<OpenBlock>\{)|(?P<CloseBlock>\})|(?P<OpenBracket>\[)|(?P<CloseBracket>\])|(?P<Identifier>[A-Za-z_][A-Za-z0-9_<>\?]*)|(?P<Whitespace>\s+)"#).unwrap();
     let mut tokens = VecDeque::new();
     for cap in token_re.captures_iter(&text) {
         if cap.name("Whitespace").is_some() { continue; }
@@ -93,6 +95,10 @@ pub fn tokenize(text: &str) -> VecDeque<Token> {
             tokens.push_back(Token::Comma);
             continue;
         }
+        if cap.name("Colon").is_some() {
+            tokens.push_back(Token::Colon);
+            continue;
+        }
         if cap.name("Semicolon").is_some() {
             tokens.push_back(Token::EndLine);
             continue;
@@ -132,6 +138,7 @@ pub fn tokenize(text: &str) -> VecDeque<Token> {
                 "fn" => Token::DefineFunction,
                 "true" => Token::Boolean(true),
                 "false" => Token::Boolean(false),
+                "let" => Token::Let,
                 _ => Token::Identifier(id),
             };
             tokens.push_back(token);
@@ -651,6 +658,32 @@ while (true){
         let actual = tokenize("3.1415;");
         let expected = vec![
             Token::ConstantNumber("3.1415".to_string()),
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn let_test() {
+        let actual = tokenize("let a = 10;");
+        let expected = vec![
+            Token::Let,
+            Token::Identifier("a".to_string()),
+            Token::Assign,
+            Token::ConstantNumber("10".to_string()),
+            Token::EndLine,
+        ];
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn colon_test() {
+        let actual = tokenize("let a: i32 = 10;");
+        let expected = vec![
+            Token::Let,
+            Token::Identifier("a".to_string()),
+            Token::Colon,
+            Token::Identifier("i32".to_string()),
+            Token::Assign,
+            Token::ConstantNumber("10".to_string()),
             Token::EndLine,
         ];
         assert_eq!(actual, expected);
