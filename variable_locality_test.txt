@@ -2,6 +2,7 @@ block 1 {
     i32 i = 2;
 }
 
-block 2 {
+requires[1[i]]
+block 3 {
     print(i);
 }

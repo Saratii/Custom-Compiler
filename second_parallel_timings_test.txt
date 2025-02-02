@@ -1,0 +1,12 @@
+block 1 {
+    sleep(30);
+}
+
+block 2 {
+    sleep(3);
+}
+
+requires[2]
+block 3 {
+    sleep(2);
+}

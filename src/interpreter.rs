@@ -1,7 +1,7 @@
 use colored::Colorize;
 
 use crate::{
-    compiler::{Compiler, Type},
+    compiler::Type,
     parse::{BinaryOperator, Complete, CompleteU, Expression, Statement, UnaryOperator},
 };
 
@@ -65,139 +65,149 @@ fn array_display_recusion(primitives: &Vec<Primitive>) -> String{
     return string
 }
 
-impl Compiler {
-    pub fn interpret(&mut self, statements: &VecDeque<Statement>) {
-        for i in 0..statements.len() {
-            self.evaluate_line(&statements[i as usize]);
-        }
-    }
-
-    pub fn evaluate_line(&mut self, statement: &Statement) {
-        match statement {
-            Statement::FunctionCall(name, args) => {
-                if name == "print" {
-                    println!("{}", args[0].evaluate(&self.variable_map))
-                } else if name ==  "sleep" {
-                    match args[0].evaluate(&self.variable_map) {
-                        Primitive::I32(value) => {
-                            std::thread::sleep(std::time::Duration::from_secs(value as u64));
-                        }
-                        _ => {}
-                    }
-                } else {
-                    panic!("{}Error[5]: Function: {} does not exist{}", RED, name, RESET);
-                }
-            }
-            Statement::DefineVariable(name, value, variable_type) => {
-                self.variable_map.insert(
-                    name.clone(),
-                    (
-                        value.clone().evaluate(&self.variable_map),
-                        variable_type.clone(),
-                    ),
-                );
-            }
-            Statement::WhileLoop(condition, lines) => {
-                let mut literal_condition = condition.evaluate(&self.variable_map);
-                match literal_condition {
-                    Primitive::Bool(mut value) => {
-                        while value {
-                            for statement in lines {
-                                self.evaluate_line(statement);
-                            }
-                            literal_condition = condition.evaluate(&self.variable_map);
-                            match literal_condition {
-                                Primitive::Bool(val) => value = val,
-                                _ => {}
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Statement::If(condition, statements, elifs, else_) => {
-                match condition.evaluate(&self.variable_map) {
-                    Primitive::Bool(literal) => {
-                        if literal {
-                            for statement in statements {
-                                self.evaluate_line(statement);
-                            }
-                        } else {
-                            'break_when_found: for elif in elifs {
-                                match elif {
-                                    Statement::Elif(elif_condition, elif_block) => {
-                                        match elif_condition.evaluate(&self.variable_map) {
-                                            Primitive::Bool(elif_literal) => {
-                                                if elif_literal {
-                                                    for statement in elif_block {
-                                                        self.evaluate_line(statement);
-                                                    }
-                                                    break 'break_when_found;
-                                                }
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            for statement in else_.clone().unwrap() {
-                                self.evaluate_line(&statement);
-                            }
-                        }
-                    }
-                    _ => panic!("compiler made an oopsie woopsie"),
-                }
-            }
-            Statement::ModifyVariable(name, expression) => {
-                let literal = expression.evaluate(&self.variable_map);
-                match self.variable_map.get(name) {
-                    Some(_) => {
-                        let ty = match literal {
-                            Primitive::Bool(_) => Type::Bool,
-                            Primitive::I32(_) => Type::I32,
-                            Primitive::String(_) => Type::String,
-                            Primitive::F32(_) => Type::F32,
-                            Primitive::I64(_) => Type::I64,
-                            Primitive::F64(_) => Type::F64,
-                            Primitive::Array(_) => todo!(),
-                        };
-
-                        self.variable_map.insert(name.to_string(), (literal, ty));
-                    }
-                    None => {
-                        let error_message =
-                            format!("ST:NAME ERROR -> name: {} does not exist", name);
-                        panic!("{}", error_message.purple());
-                    }
-                }
-            }
-            Statement::ForLoop(define_variable, condition, increment, lines) => {
-                self.evaluate_line(define_variable);
-                let mut evaluated_condition = condition.evaluate(&self.variable_map);
-                match evaluated_condition {
-                    Primitive::Bool(mut value) => {
-                        while value {
-                            for statement in lines {
-                                self.evaluate_line(statement);
-                            }
-                            self.evaluate_line(increment);
-                            evaluated_condition = condition.evaluate(&self.variable_map);
-                            match evaluated_condition {
-                                Primitive::Bool(updated_value) => value = updated_value,
-                                _ => {}
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            _ => {
-                panic!("compiler found unexpected statement {:?}", statement)
-            }
+fn combine_variables(local_variable_map: &mut HashMap<String, (Primitive, Type)>, inherited_variables: Vec<HashMap<String, (Primitive, Type)>>) {
+    for map in inherited_variables {
+        for (key, value) in map {
+            local_variable_map.insert(key, value);
         }
     }
 }
+
+pub fn interpret(statements: &VecDeque<Statement>, inherited_variables: Vec<HashMap<String, (Primitive, Type)>>) -> HashMap<String, (Primitive, Type)> {
+    let mut local_variable_map = HashMap::new();
+    combine_variables(&mut local_variable_map, inherited_variables);
+    for i in 0..statements.len() {
+        evaluate_line(&statements[i as usize], &mut local_variable_map);
+    }
+    local_variable_map
+}
+
+pub fn evaluate_line(statement: &Statement, local_variable_map: &mut HashMap<String, (Primitive, Type)>) {
+    match statement {
+        Statement::FunctionCall(name, args) => {
+            if name == "print" {
+                println!("{}", args[0].evaluate(local_variable_map))
+            } else if name ==  "sleep" {
+                match args[0].evaluate(local_variable_map) {
+                    Primitive::I32(value) => {
+                        std::thread::sleep(std::time::Duration::from_secs(value as u64));
+                    }
+                    _ => {}
+                }
+            } else {
+                panic!("{}Error[5]: Function: {} does not exist{}", RED, name, RESET);
+            }
+        }
+        Statement::DefineVariable(name, value, variable_type) => {
+            local_variable_map.insert(
+                name.clone(),
+                (
+                    value.clone().evaluate(local_variable_map),
+                    variable_type.clone(),
+                ),
+            );
+        }
+        Statement::WhileLoop(condition, lines) => {
+            let mut literal_condition = condition.evaluate(local_variable_map);
+            match literal_condition {
+                Primitive::Bool(mut value) => {
+                    while value {
+                        for statement in lines {
+                            evaluate_line(statement, local_variable_map);
+                        }
+                        literal_condition = condition.evaluate(&local_variable_map);
+                        match literal_condition {
+                            Primitive::Bool(val) => value = val,
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Statement::If(condition, statements, elifs, else_) => {
+            match condition.evaluate(local_variable_map) {
+                Primitive::Bool(literal) => {
+                    if literal {
+                        for statement in statements {
+                            evaluate_line(statement, local_variable_map);
+                        }
+                    } else {
+                        'break_when_found: for elif in elifs {
+                            match elif {
+                                Statement::Elif(elif_condition, elif_block) => {
+                                    match elif_condition.evaluate(local_variable_map) {
+                                        Primitive::Bool(elif_literal) => {
+                                            if elif_literal {
+                                                for statement in elif_block {
+                                                    evaluate_line(statement, local_variable_map);
+                                                }
+                                                break 'break_when_found;
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        for statement in else_.clone().unwrap() {
+                            evaluate_line(&statement, local_variable_map);
+                        }
+                    }
+                }
+                _ => panic!("compiler made an oopsie woopsie"),
+            }
+        }
+        Statement::ModifyVariable(name, expression) => {
+            let literal = expression.evaluate(local_variable_map);
+            match local_variable_map.get(name) {
+                Some(_) => {
+                    let ty = match literal {
+                        Primitive::Bool(_) => Type::Bool,
+                        Primitive::I32(_) => Type::I32,
+                        Primitive::String(_) => Type::String,
+                        Primitive::F32(_) => Type::F32,
+                        Primitive::I64(_) => Type::I64,
+                        Primitive::F64(_) => Type::F64,
+                        Primitive::Array(_) => todo!(),
+                    };
+
+                    local_variable_map.insert(name.to_string(), (literal, ty));
+                }
+                None => {
+                    let error_message =
+                        format!("ST:NAME ERROR -> name: {} does not exist", name);
+                    panic!("{}", error_message.purple());
+                }
+            }
+        }
+        Statement::ForLoop(define_variable, condition, increment, lines) => {
+            evaluate_line(define_variable, local_variable_map);
+            let mut evaluated_condition = condition.evaluate(local_variable_map);
+            match evaluated_condition {
+                Primitive::Bool(mut value) => {
+                    while value {
+                        for statement in lines {
+                            evaluate_line(statement, local_variable_map);
+                        }
+                        evaluate_line(increment, local_variable_map);
+                        evaluated_condition = condition.evaluate(local_variable_map);
+                        match evaluated_condition {
+                            Primitive::Bool(updated_value) => value = updated_value,
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        _ => {
+            panic!("compiler found unexpected statement {:?}", statement)
+        }
+    }
+}
+
 impl CompleteU {
     fn evaluate(&self, variables: &HashMap<String, (Primitive, Type)>) -> Primitive {
         match (self.child.evaluate(variables), &self.operator) {

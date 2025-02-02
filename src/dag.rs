@@ -9,8 +9,8 @@ pub fn build_dag(token_blocks: &HashSet<TokenBlock>) -> HashMap<usize, TokenBloc
     let valid_ids: HashSet<usize> = token_blocks.iter().map(|block| block.id).collect();
     let mut dag: HashMap<usize, TokenBlock> = HashMap::new();
     for block in token_blocks {
-        for &required_id in &block.requires {
-            if !valid_ids.contains(&required_id) {
+        for required_id in block.requires.keys() {
+            if !valid_ids.contains(required_id) {
                 panic!("{}Error[3]: Block {} requires block {} which is not defined!{}", RED, block.id, required_id, RESET);
             }
         }
@@ -25,8 +25,8 @@ fn build_children_map(dag: &HashMap<usize, TokenBlock>) -> HashMap<usize, Vec<us
         children_map.insert(id, Vec::new());
     }
     for (&id, block) in dag.iter() {
-        for &required_id in &block.requires {
-            if let Some(vec) = children_map.get_mut(&required_id) {
+        for required_id in block.requires.keys() {
+            if let Some(vec) = children_map.get_mut(required_id) {
                 vec.push(id);
             }
         }
@@ -93,16 +93,17 @@ fn print_tree(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashSet, VecDeque};
-
+    use std::collections::{HashMap, HashSet, VecDeque};
     use crate::{dag::{build_dag, print_dag}, token_block::TokenBlock};
 
     #[test]
     fn test_build_and_print_dag() {
-        let block1 = TokenBlock { id: 1, requires: vec![], tokens: VecDeque::new() };
-        let block2 = TokenBlock { id: 2, requires: vec![], tokens: VecDeque::new() };
-        let block3 = TokenBlock { id: 3, requires: vec![], tokens: VecDeque::new() };
-        let block4 = TokenBlock { id: 4, requires: vec![1], tokens: VecDeque::new() };
+        let block1 = TokenBlock { id: 1, requires: HashMap::new(), tokens: VecDeque::new() };
+        let block2 = TokenBlock { id: 2, requires: HashMap::new(), tokens: VecDeque::new() };
+        let block3 = TokenBlock { id: 3, requires: HashMap::new(), tokens: VecDeque::new() };
+        let mut req = HashMap::new();
+        req.insert(1, Vec::new());
+        let block4 = TokenBlock { id: 4, requires: req, tokens: VecDeque::new() };
         let token_blocks: HashSet<TokenBlock> = vec![block1, block2, block3, block4].into_iter().collect();
         let dag = build_dag(&token_blocks);
         assert_eq!(dag.len(), 4);

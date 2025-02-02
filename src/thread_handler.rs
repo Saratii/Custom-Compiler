@@ -1,20 +1,20 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 use chrono::Local;
-use crate::{compiler::Compiler, token_block::TokenBlock};
+use crate::{compiler::{Compiler, Type}, interpreter::{interpret, Primitive}, token_block::TokenBlock};
 
 const PURPLE: &str = "\x1b[35m";
 const RESET: &str = "\x1b[0m";
 
 pub fn parallel(dag: HashMap<usize, TokenBlock>, compiler: Arc<Compiler>, verbose: bool) {
+    let master_variable_map: Arc<Mutex<HashMap<usize, HashMap<String, (Primitive, Type)>>>> = Arc::new(Mutex::new(HashMap::new()));
     let mut in_degree: HashMap<usize, usize> = HashMap::new();
     for (&id, block) in dag.iter() {
         in_degree.insert(id, block.requires.len());
     }
     let mut children_map: HashMap<usize, Vec<usize>> = HashMap::new();
     for (&id, block) in dag.iter() {
-        for &req in &block.requires {
-            children_map.entry(req).or_insert_with(Vec::new).push(id);
+        for required_id in block.requires.keys() {
+            children_map.entry(*required_id).or_insert_with(Vec::new).push(id);
         }
     }
     let global_start = Local::now();
@@ -33,14 +33,28 @@ pub fn parallel(dag: HashMap<usize, TokenBlock>, compiler: Arc<Compiler>, verbos
             let id_copy = *id;
             let mut block = dag.get(&id_copy).unwrap().clone();
             let compiler_clone = Arc::clone(&compiler);
+            let master_var_map_clone = Arc::clone(&master_variable_map);
             handles.push(std::thread::spawn(move || {
                 let start_time = Local::now();
                 if verbose {
                     println!("Block {} starting at {}", id_copy, start_time.format("%H:%M:%S"));
                 }
-                let mut local_compiler = (*compiler_clone).clone();
+                let local_compiler = (*compiler_clone).clone();
                 let mut statements = local_compiler.parse(&mut block.tokens);
-                local_compiler.interpret(&mut statements);
+                let mut inherited_variable_map = Vec::new();
+                for req_id in block.requires.keys() {
+                    if block.requires[req_id].is_empty() {
+                        continue;
+                    }
+                    if let Some(map) = master_var_map_clone.lock().unwrap().get(req_id) {
+                        inherited_variable_map.push(map.clone());
+                    }
+                }
+                let local_variable_map = interpret(&mut statements, inherited_variable_map);
+                {
+                    let mut master = master_var_map_clone.lock().unwrap();
+                    master.insert(id_copy, local_variable_map);
+                }
                 let now = Local::now();
                 if verbose {
                     let elapsed_ms = now.signed_duration_since(start_time).num_microseconds().unwrap_or(0) as f64 / 1000.0;
