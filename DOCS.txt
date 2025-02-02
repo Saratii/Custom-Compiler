@@ -89,3 +89,6 @@ a && b
 
 MULTIDIMENSIONAL ARRAYS
 Array<Array<i32>> a = [[1, 2, 3], [1, 2, 3]]
+
+SLEEP: pause block execution for n seconds. 
+sleep(x: int)

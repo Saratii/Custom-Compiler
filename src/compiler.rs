@@ -13,6 +13,7 @@ pub enum Type {
     Array(Box<Type>),
 }
 
+#[derive(Debug, Clone)]
 pub struct Compiler{
     pub variable_map: HashMap<String, (Primitive, Type)>,
 }

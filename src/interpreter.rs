@@ -73,6 +73,15 @@ impl Compiler {
             Statement::FunctionCall(name, args) => {
                 if name == "print" {
                     println!("{}", args[0].evaluate(&self.variable_map))
+                } else if name ==  "sleep" {
+                    match args[0].evaluate(&self.variable_map) {
+                        Primitive::I32(value) => {
+                            std::thread::sleep(std::time::Duration::from_secs(value as u64));
+                        }
+                        _ => {}
+                    }
+                } else {
+                    panic!("{}", format!("Error[5]: Function: {} does not exist", name).purple());
                 }
             }
             Statement::DefineVariable(name, value, variable_type) => {

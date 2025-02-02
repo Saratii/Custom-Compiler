@@ -1,0 +1,16 @@
+block 1 {
+    sleep(5);
+}
+
+block 2 {
+    sleep(10);
+}
+
+block 3 {
+    sleep(3);
+}
+
+requires[1, 2, 3]
+block 4 {
+    sleep(4);
+}

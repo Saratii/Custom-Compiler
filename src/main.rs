@@ -1,5 +1,5 @@
 use std::{collections::HashSet, env, fs};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use compiler::Compiler;
 use dag::{build_dag, print_dag};
 use thread_handler::parallel;
@@ -25,7 +25,7 @@ fn main() {
     let very_verbose = args.len() > 2 && args[2] == "-vv";
     let verbose = args.len() > 2 && (args[2] == "-v" || very_verbose);
     let text = read_file(file_name);
-    let arc_compiler = Arc::new(Mutex::new(Compiler::new()));
+    let arc_compiler = Arc::new(Compiler::new());
     let string_blocks = split_blocks(&text);
     let mut token_blocks = HashSet::new();
     for block in string_blocks {

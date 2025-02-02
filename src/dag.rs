@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use crate::token_block::TokenBlock;
 
+const GREEN: &str = "\x1b[32m";
+const RESET: &str = "\x1b[0m";
+
 pub fn build_dag(token_blocks: &HashSet<TokenBlock>) -> HashMap<usize, TokenBlock> {
     let valid_ids: HashSet<usize> = token_blocks.iter().map(|block| block.id).collect();
     let mut dag: HashMap<usize, TokenBlock> = HashMap::new();
@@ -31,6 +34,7 @@ fn build_children_map(dag: &HashMap<usize, TokenBlock>) -> HashMap<usize, Vec<us
 }
 
 pub fn print_dag(dag: &HashMap<usize, TokenBlock>) {
+    println!("{}DAG:{} ", GREEN, RESET);
     let children_map = build_children_map(dag);
     let mut child_ids = HashSet::new();
     for children in children_map.values() {
@@ -60,8 +64,6 @@ fn print_tree(
     is_last: bool,
     printed: &mut HashSet<usize>,
 ) {
-    const GREEN: &str = "\x1b[32m";
-    const RESET: &str = "\x1b[0m";
     if is_root {
         println!("{}Block {}{}", GREEN, node, RESET);
     } else {
