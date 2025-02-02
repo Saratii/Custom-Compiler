@@ -16,10 +16,13 @@ pub mod dag;
 pub mod token_block;
 pub mod thread_handler;
 
+const RED: &str = "\x1b[31m";
+const RESET: &str = "\x1b[0m";
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        panic!("Error[1]: File Name Required");
+        panic!("{}Error[1]: File Name Required{}", RED, RESET);
     }
     let file_name = &args[1];
     let very_verbose = args.len() > 2 && args[2] == "-vv";
@@ -31,7 +34,7 @@ fn main() {
     for block in string_blocks {
         let (id, requires, content) = extract_block_meta(&block);
         if !token_blocks.insert(TokenBlock::new(id, requires, tokenize(&content))) {
-            panic!("Error[2]: Duplicate Block ID: {}", id);
+            panic!("{}Error[2]: Duplicate Block ID: {}{}", RED, id, RESET);
         }
     }
     if very_verbose {
@@ -57,7 +60,7 @@ fn read_file(file_name: &str) -> String {
             contents
         }
         Err(err) => {
-            panic!("Error[4]: Error reading file {}: {}", file_name, err);
+            panic!("{}Error[4]: Error reading file {}: {}{}", RED, file_name, err, RESET);
         }
     }
 }

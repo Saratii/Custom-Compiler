@@ -4,6 +4,10 @@ use crate::{
     compiler::{Compiler, Type},
     parse::{BinaryOperator, Complete, CompleteU, Expression, Statement, UnaryOperator},
 };
+
+const RED: &str = "\x1b[31m";
+const RESET: &str = "\x1b[0m";
+
 use std::collections::{HashMap, VecDeque};
 #[derive(PartialEq, Debug, Clone)]
 pub enum Primitive {
@@ -81,7 +85,7 @@ impl Compiler {
                         _ => {}
                     }
                 } else {
-                    panic!("{}", format!("Error[5]: Function: {} does not exist", name).purple());
+                    panic!("{}Error[5]: Function: {} does not exist{}", RED, name, RESET);
                 }
             }
             Statement::DefineVariable(name, value, variable_type) => {

@@ -18,3 +18,7 @@ block 4 {
 block 5 {
     sleep(2);
 }
+
+block 5 {
+    sleep(2);
+}

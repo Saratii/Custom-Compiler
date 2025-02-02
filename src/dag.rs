@@ -3,6 +3,7 @@ use crate::token_block::TokenBlock;
 
 const GREEN: &str = "\x1b[32m";
 const RESET: &str = "\x1b[0m";
+const RED: &str = "\x1b[31m";
 
 pub fn build_dag(token_blocks: &HashSet<TokenBlock>) -> HashMap<usize, TokenBlock> {
     let valid_ids: HashSet<usize> = token_blocks.iter().map(|block| block.id).collect();
@@ -10,7 +11,7 @@ pub fn build_dag(token_blocks: &HashSet<TokenBlock>) -> HashMap<usize, TokenBloc
     for block in token_blocks {
         for &required_id in &block.requires {
             if !valid_ids.contains(&required_id) {
-                panic!("Error[3]: Block {} requires block {} which is not defined!", block.id, required_id);
+                panic!("{}Error[3]: Block {} requires block {} which is not defined!{}", RED, block.id, required_id, RESET);
             }
         }
         dag.insert(block.id, block.clone());
