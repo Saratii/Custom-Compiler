@@ -1,4 +1,5 @@
 use colored::Colorize;
+use rand::Rng;
 
 use crate::parse::{BinaryOperator, Complete, CompleteU, Expression, Statement, UnaryOperator};
 
@@ -384,43 +385,57 @@ impl Expression {
             Expression::I64(value) => Primitive::I64(*value),
             Expression::F32(value) => Primitive::F32(*value),
             Expression::F64(value) => Primitive::F64(*value),
-            Expression::FunctionCall(name, args) => match args[0].evaluate(variables) {
-                Primitive::I32(value) => {
-                    if name == "i32" {
-                        return Primitive::I32(value as i32);
-                    } else if name == "i64" {
-                        return Primitive::I64(value as i64);
-                    } else if name == "f64" {
-                        return Primitive::F64(value as f64);
-                    } else if name == "f32" {
-                        return Primitive::F32(value as f32);
-                    } else if name == "string" {
-                        return Primitive::String(value.to_string());
-                    } else {
-                        let error_message =
-                            format!("ST:NAME ERROR -> Function: {} does not exist", name);
-                        panic!("{}", error_message.purple());
+            Expression::FunctionCall(name, args) => {
+                if name == "i32" {
+                    match args[0].evaluate(variables) {
+                        Primitive::I32(value) => return Primitive::I32(value as i32),
+                        Primitive::I64(value) => return Primitive::I32(value as i32),
+                        Primitive::F32(value) => return Primitive::I32(value as i32),
+                        Primitive::F64(value) => return Primitive::I32(value as i32),
+                        value => panic!("{}Error[8]: Failed to cast {} to i32{}", RED, value, RESET),
                     }
-                }
-                Primitive::F32(value) => {
-                    if name == "i32()" {
-                        return Primitive::I32(value as i32);
-                    } else if name == "i64()" {
-                        return Primitive::I64(value as i64);
-                    } else if name == "f64()" {
-                        return Primitive::F64(value as f64);
-                    } else if name == "f32()" {
-                        return Primitive::F32(value as f32);
-                    } else if name == "string()" {
-                        return Primitive::String(value.to_string());
-                    } else {
-                        let error_message =
-                            format!("ST:NAME ERROR -> Function: {} does not exist", name);
-                        panic!("{}", error_message.purple());
+                } else if name == "i64" {
+                    match args[0].evaluate(variables) {
+                        Primitive::I32(value) => return Primitive::I64(value as i64),
+                        Primitive::I64(value) => return Primitive::I64(value as i64),
+                        Primitive::F32(value) => return Primitive::I64(value as i64),
+                        Primitive::F64(value) => return Primitive::I64(value as i64),
+                        value => panic!("{}Error[8]: Failed to cast {} to i64{}", RED, value, RESET),
                     }
-                }
-                _ => {
-                    panic!("yawwwwww")
+                } else if name == "f64" {
+                    match args[0].evaluate(variables) {
+                        Primitive::I32(value) => return Primitive::F64(value as f64),
+                        Primitive::I64(value) => return Primitive::F64(value as f64),
+                        Primitive::F32(value) => return Primitive::F64(value as f64),
+                        Primitive::F64(value) => return Primitive::F64(value as f64),
+                        value => panic!("{}Error[8]: Failed to cast {} to f64{}", RED, value, RESET),
+                    }
+                } else if name == "f32" {
+                    match args[0].evaluate(variables) {
+                        Primitive::I32(value) => return Primitive::F32(value as f32),
+                        Primitive::I64(value) => return Primitive::F32(value as f32),
+                        Primitive::F32(value) => return Primitive::F32(value as f32),
+                        Primitive::F64(value) => return Primitive::F32(value as f32),
+                        value => panic!("{}Error[8]: Failed to cast {} to f32{}", RED, value, RESET),
+                    }
+                } else if name == "string" {
+                    match args[0].evaluate(variables) {
+                        Primitive::I32(value) => return Primitive::String(value.to_string()),
+                        Primitive::I64(value) => return Primitive::String(value.to_string()),
+                        Primitive::F32(value) => return Primitive::String(value.to_string()),
+                        Primitive::F64(value) => return Primitive::String(value.to_string()),
+                        Primitive::String(value) => return Primitive::String(value),
+                        Primitive::Bool(value) => return Primitive::String(value.to_string()),
+                        value => panic!("{}Error[8]: Failed to cast {} to string{}", RED, value, RESET),
+                    }
+                } else if name == "rand_int" {
+                    return Primitive::I32(rand::rng().random_range(args[0].evaluate(variables).len() as i32..args[1].evaluate(variables).len() as i32));
+                } else if name == "rand_float" {
+                    return Primitive::F32(rand::random::<f32>());
+                } else {
+                    let error_message =
+                        format!("ST:NAME ERROR -> Function: {} does not exist", name);
+                    panic!("{}", error_message.purple());
                 }
             },
             _ => {

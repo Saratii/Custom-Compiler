@@ -91,3 +91,7 @@ let a: Array<Array<i32>> = [[1, 2, 3], [1, 2, 3]]
 
 SLEEP: pause block execution for n seconds. 
 sleep(x: int)
+
+RANDOM
+rand_int(a: i32, b: i32) -> i32 between A and B inclusive
+raind_float() -> f32 between 0 and 1

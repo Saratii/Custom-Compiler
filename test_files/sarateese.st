@@ -20,4 +20,5 @@ block a {
     //arrays
     let ieee: Array<Array<i32>> = [[1, 2, 3, 4]];
     print(ieee);
+    print(rand_float());
 }

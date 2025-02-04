@@ -5,3 +5,4 @@ Error[4]: Error reading file {}: {}
 Error[5]: Function: {} does not exist
 Error[6]: Variable {} does not exist
 Error[7]: Invalid block format
+Error[8]: Failed to cast {} to _
